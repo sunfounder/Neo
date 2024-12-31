@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zeus_pi"
+authors = [
+  {name="SunFounder", email="service@sunfounder.com" },
+]
+description = "Python library for Bella Hat on Rasb"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: POSIX :: Linux",
+]
+keywords = ["zeus_pi", "Zeus", "sunfounder"]
+dynamic = ["version"]
+
+dependencies = [
+]
+#'adafruit-circuitpython-dht',
+#'Adafruit-Blinka',
+#'adafruit-circuitpython-neopixel-spi',
+
+[tool.setuptools]
+packages = ["zeus_pi"]
+
+[project.scripts]
+
+[project.urls]
+"Homepage" = "https://github.com/sunfounder/zeus_pi"
+"Bug Tracker" = "https://github.com/sunfounder/zeus_pi/issues"
+
+#[tool.setuptools.packages.find]
+#include = ["zeus_pi"]
+#exclude = ["setup.py", "docs", 'tests*', 'examples', 'workspace']
+
+[tool.setuptools.dynamic]
+version = {attr = "zeus_pi.version.__version__"}
+
+
