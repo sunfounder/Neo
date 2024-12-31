@@ -9,9 +9,7 @@ from .utils import *
 
 from math import pi, sqrt, sin, cos
 import time
-import os
 import ast
-
 
 class ZeusPi():
 
@@ -106,13 +104,17 @@ class ZeusPi():
                 self.config.get('grayscale', 'cliff_reference', self.DEFAULT_CLIFF_REFERENCE))
         self.compass_offset = ast.literal_eval(
                 self.config.get('compass', 'offset', f'{[0 for _ in range(6)]}'))
+        self.magnetic_declination = str(self.config.get('compass', 'magnetic_declination', f"0°0'E"))
+
         # write default config if not exist
         self.config.write()
         #
-        print(f'motors_direction: {self.motors_direction}')
-        print(f'servos_offset: {self.cam_pan_offset, self.cam_tilt_offset}')
-        print(f'line_reference: {self.line_reference}')
-        print(f'cliff_reference: {self.cliff_reference}')
+        debug(f'motors_direction: {self.motors_direction}')
+        debug(f'servos_offset: {self.cam_pan_offset, self.cam_tilt_offset}')
+        debug(f'line_reference: {self.line_reference}')
+        debug(f'cliff_reference: {self.cliff_reference}')
+        debug(f'compass_offset: {self.compass_offset}')
+        debug(f'magnetic_declination: {self.magnetic_declination}')
 
         # --------- motors init ---------
         try:
@@ -124,8 +126,9 @@ class ZeusPi():
             self.motor_3 = Motor(PWM(motor_pins[6]), PWM(motor_pins[7]), is_reversed=self.motors_direction[3])
             # done
             debug("ok")
-        except OSError:
+        except Exception as e:
             error('fail')
+            error(e)
 
         # --------- servos init ---------
         try:
@@ -135,8 +138,9 @@ class ZeusPi():
             self.cam_tilt = Servo(servo_pins[1])
             # done
             debug("ok")
-        except OSError:
+        except Exception as e:
             error('fail')
+            error(e)
 
         # --------- grayscale module init ---------
         try:
@@ -146,8 +150,9 @@ class ZeusPi():
             self.grayscale = Grayscale_Module(self.adc0, self.adc1, self.adc2, reference=None)
             # done
             debug("ok")
-        except OSError:
+        except Exception as e:
             error('fail')
+            error(e)
 
         # --------- ultrasonic init ---------
         try:
@@ -156,8 +161,9 @@ class ZeusPi():
             echo = Pin(ultrasonic_pins[1], mode=Pin.IN, pull=Pin.PULL_DOWN)
             self.ultrasonic = Ultrasonic(trig, echo)
             debug("ok")
-        except:
+        except Exception as e:
             error("fail")
+            error(e)
 
         # --------- ir obstacle init ---------
         try:
@@ -165,25 +171,30 @@ class ZeusPi():
             self.ir_obstacle_left = Pin(ir_obstacle_pins[0], mode=Pin.IN, pull=Pin.PULL_DOWN)
             self.ir_obstacle_right = Pin(ir_obstacle_pins[1], mode=Pin.IN, pull=Pin.PULL_DOWN)
             debug("ok")
-        except:
+        except Exception as e:
             error("fail")
+            error(e)
 
         # --------- imu sh3001 init ---------
         try:
             debug("imu sh3001 init ... ", end='', flush=True)
             self.imu = SH3001(db=config)
             debug("ok")
-        except OSError:
+        except Exception as e:
             error("fail")
+            error(e)
 
         # --------- geomagnetism qmc6310 init ---------
         try:
             debug("compass qmc6310 init ... ", end='', flush=True)
             self.compass_placement = compass_placement
             self.compass = Compass(self.compass_placement)
+            self.set_compass_offset(*self.compass_offset)
+            self.set_compass_magnetic_declination(self.magnetic_declination)
             debug("ok")
-        except:
+        except Exception as e:
             error("fail")
+            error(e)
 
         # --------- ws2812 rgb_LEDs init ---------
         try:
@@ -191,16 +202,18 @@ class ZeusPi():
             self.rgb_config = self.DEFAULT_RGB_CONFIG
             self.rgb_strip = RGB_Strip(self.rgb_config)
             debug("ok")
-        except:
+        except Exception as e:
             error("fail")
+            error(e)
 
         # --------- speaker init ---------
-        try:
-            debug("speaker init ... ", end='', flush=True)
-            self.speaker = Music()
-            debug("ok")
-        except:
-            error("fail")
+        # try:
+        #     debug("speaker init ... ", end='', flush=True)
+        #     self.speaker = Music()
+        #     debug("ok")
+        # except Exception as e:
+        #     error("fail")
+        #     error(e)
 
         # --------- microphone check ---------
 
@@ -329,13 +342,13 @@ class ZeusPi():
     # ===============================================================================
     def set_cam_pan(self, angle):
         angle = constrain(angle, self.CAM_PAN_MIN, self.CAM_PAN_MAX)
-        angle = self.CAM_PAN_DIR * angle
-        self.cam_pan.angle(angle + self.cam_pan_offset)
+        angle = self.CAM_PAN_DIR * (angle + self.cam_pan_offset)
+        self.cam_pan.angle(angle)
 
     def set_cam_tilt(self, angle):
         angle = constrain(angle, self.CAM_TILT_MIN, self.CAM_TILT_MAX)
-        angle = self.CAM_TILT_DIR * angle
-        self.cam_tilt.angle(angle + self.cam_tilt_offset)
+        angle = self.CAM_TILT_DIR * (angle + self.cam_tilt_offset)
+        self.cam_tilt.angle(angle)
 
     def set_cam_servos_offset(self, offset):
         self.cam_pan_offset = round(offset[0], 1)
@@ -353,6 +366,17 @@ class ZeusPi():
     def read_compass(self):
         return self.compass.read()
     
+    def set_compass_offset(self, x_min, x_max, y_min, y_max, z_min, z_max):
+        self.compass_offset = [x_min, x_max, y_min, y_max, z_min, z_max]
+        self.compass_offset = [round(x, 2) for x in self.compass_offset]
+        self.config['compass']['offset'] = self.compass_offset
+        self.compass.set_calibration(*self.compass_offset)
+
+    def set_compass_magnetic_declination(self, declination):
+        self.compass.set_magnetic_declination(declination)
+        self.config['compass']['magnetic_declination'] = declination
+
+
     # ir_obstacle
     # ===============================================================================
     def read_ir_obstacle(self):

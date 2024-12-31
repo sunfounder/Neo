@@ -126,6 +126,31 @@ class Compass(QMC6310):
         self.x_offset = 0
         self.y_offset = 0
         self.z_offset = 0
+        self.magnetic_declination_str = "0°0'W"
+        self.magnetic_declination_angle = 0
+
+    def angle_str_2_number(self, str):
+        parts = str.split("°")
+        degree = int(parts[0])
+        parts = parts[1].split("'")
+        minute = int(parts[0])
+        direction = parts[1]
+        if direction == "W":
+            return -degree - minute / 60
+        elif direction == "E":
+            return degree + minute / 60
+        
+    def angle_number_2_str(self, number):
+        degree = int(number)
+        minute = int((number - degree) * 60)
+        direction = "E"
+        if number < 0:
+            direction = "W"
+            degree = -degree
+        return str(degree) + "°" + str(minute) + "'" + direction
+
+    def set_magnetic_declination(self, str):
+        self.magnetic_declination_angle = self.angle_str_2_number(str)
 
     def read(self):
         x, y, z = self.read_raw()
@@ -157,7 +182,7 @@ class Compass(QMC6310):
         # if angle < 0:
         #     angle += 360
 
-        angle = degrees(atan2(b, a))
+        angle = degrees(atan2(b, a)) - self.magnetic_declination_angle
         angle = (angle + 360) % 360
 
         return (x_mG, y_mG, z_mG, round(angle, 2))
@@ -172,6 +197,14 @@ class Compass(QMC6310):
         self.x_offset = (self.x_min + self.x_max) / 2
         self.y_offset = (self.y_min + self.y_max) / 2
         self.z_offset = (self.z_min + self.z_max) / 2
+
+    def set_magnetic_declination(self, angle):
+        if isinstance(angle, str):
+            self.magnetic_declination_str = angle
+            self.magnetic_declination_angle = self.angle_str_2_number(angle)
+        elif isinstance(angle, float) or isinstance(angle, int):
+            self.magnetic_declination_angle = float(angle)
+            self.magnetic_declination_str = self.angle_number_2_str(angle)
 
     def clear_calibration(self):
         self.x_min = 0
