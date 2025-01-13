@@ -78,21 +78,21 @@ class QMC6310(I2C):
     _y = 0
     _z = 0
 
-    def __init__(self, range="8G"):
+    def __init__(self, field_range="8G"):
 
         super().__init__(address=self.QMC6310_ADDR)
         if not self.is_avaliable():
             raise IOError("QMC6310 is not avaliable")
         
-        if range in ["30G", "12G", "8G", "2G"]:
-            self.range = range
+        if field_range in ["30G", "12G", "8G", "2G"]:
+            self.field_range = field_range
         else:
-            self.range = "8G"
-            raise ValueError("range must be one of ['30G', '12G', '8G', '2G']")
+            self.field_range = "8G"
+            raise ValueError("field_range must be one of ['30G', '12G', '8G', '2G']")
 
         #  init
         self._write_byte_data(0x29, 0x06)
-        self._write_byte_data(self.QMC6310_REG_CONTROL_2, self.RANGE[range])
+        self._write_byte_data(self.QMC6310_REG_CONTROL_2, self.RANGE[field_range])
         self._write_byte_data(self.QMC6310_REG_CONTROL_1, 
             self.QMC6310_VAL_MODE_NORMAL | self.QMC6310_VAL_ODR_200HZ | self.QMC6310_VAL_OSR1_8 | self.QMC6310_VAL_OSR2_8)
 
@@ -106,15 +106,22 @@ class QMC6310(I2C):
 
 class Compass(QMC6310):
 
-    def __init__(self, placement=["x", "y", "z"], range="8G"):
+    FILTER_SIZE = 30
+
+    def __init__(self, placement=["x", "y", "z"], 
+                 offset=[0, 0, 0, 0, 0, 0],
+                 declination="0°0'W",
+                 field_range="8G"):
         '''
         placement: '[x','y','z']  ...
                    ...
                    ...
                    ...
+        
+        offset: [x_min, x_max, y_min, y_max, z_min, z_max]
         '''
         # qmc6310 init
-        super().__init__(range)
+        super().__init__(field_range)
 
         self.placement = placement
         self.x_min = 0
@@ -126,8 +133,22 @@ class Compass(QMC6310):
         self.x_offset = 0
         self.y_offset = 0
         self.z_offset = 0
+        self.x_scale = 0
+        self.y_scale = 0
+        self.z_scale = 0
         self.magnetic_declination_str = "0°0'W"
         self.magnetic_declination_angle = 0
+        # set offset
+        self.set_offset(offset)
+        self.set_magnetic_declination(declination)
+        # filter
+        self.filter_buffer = [0]*self.FILTER_SIZE
+        self.filter_index = 0
+        self.filter_sum = 0
+        # init filter
+        for _ in range(self.FILTER_SIZE):
+            self.read_angle(filter=True)
+
 
     def angle_str_2_number(self, str):
         parts = str.split("°")
@@ -159,9 +180,13 @@ class Compass(QMC6310):
         y = y - self.y_offset
         z = z - self.z_offset
 
-        x_mG = x / self.LSB[self.range]
-        y_mG = y / self.LSB[self.range]
-        z_mG = z / self.LSB[self.range]
+        # x = (x - self.x_offset) * self.x_scale
+        # y = (y - self.y_offset) * self.y_scale
+        # z = (z - self.z_offset) * self.z_scale
+
+        x_mG = x / self.LSB[self.field_range]
+        y_mG = y / self.LSB[self.field_range]
+        z_mG = z / self.LSB[self.field_range]
 
         temp = {
             'x': [x, self.x_offset],
@@ -175,8 +200,8 @@ class Compass(QMC6310):
         b = temp[self.placement[1]][0]
         a_offset = temp[self.placement[0]][1]
         b_offset = temp[self.placement[1]][1]
-        a = a - a_offset
-        b = b - b_offset
+        # a = a - a_offset
+        # b = b - b_offset
 
         # angle = atan2(a, b) *180 / pi
         # if angle < 0:
@@ -186,17 +211,45 @@ class Compass(QMC6310):
         angle = (angle + 360) % 360
 
         return (x_mG, y_mG, z_mG, round(angle, 2))
+    
+    def read_angle(self, filter=False):
+        _value = self.read()[3]
+        if not filter:
+            return _value
+        else:
+            self.filter_sum = self.filter_sum - self.filter_buffer[self.filter_index] + _value
+            self.filter_buffer[self.filter_index] = _value
+            self.filter_index += 1
+            if self.filter_index >= self.FILTER_SIZE:
+                self.filter_index = 0
+            _value = self.filter_sum / self.FILTER_SIZE
+            return round(_value, 2)
 
-    def set_calibration(self, x_min, x_max, y_min, y_max, z_min, z_max):
-        self.x_min = x_min
-        self.x_max = x_max
-        self.y_min = y_min
-        self.y_max = y_max
-        self.z_min = z_min
-        self.z_max = z_max
+    def set_offset(self, offset):
+        # https://www.appelsiini.net/2018/calibrate-magnetometer/
+        self.x_min = offset[0]
+        self.x_max = offset[1]
+        self.y_min = offset[2]
+        self.y_max = offset[3]
+        self.z_min = offset[4]
+        self.z_max = offset[5]
+        # hard iron calibration
         self.x_offset = (self.x_min + self.x_max) / 2
         self.y_offset = (self.y_min + self.y_max) / 2
         self.z_offset = (self.z_min + self.z_max) / 2
+        # soft iron calibration
+        avg_delta_x = (self.x_max - self.x_min) / 2
+        avg_delta_y = (self.y_max - self.y_min) / 2
+        avg_delta_z = (self.z_max - self.z_min) / 2
+        avg_delta = (avg_delta_x + avg_delta_y + avg_delta_z) / 3
+        self.x_scale = avg_delta / avg_delta_x
+        self.y_scale = avg_delta / avg_delta_y
+        self.z_scale = avg_delta / avg_delta_z
+        # corrected_x = (sensor_x - offset_x) * x_scale
+        # corrected_y = (sensor_y - offset_y) * y_scale
+        # corrected_z = (sensor_z - offset_z) * z_scale
+
+        print(f"compass offset: {self.x_offset} {self.y_offset} {self.z_offset} scale: {self.x_scale} {self.y_scale} {self.z_scale}")
 
     def set_magnetic_declination(self, angle):
         if isinstance(angle, str):
@@ -218,7 +271,7 @@ class Compass(QMC6310):
         self.z_offset = 0
 
 if __name__ == '__main__':
-    compass = Compass(placement=['x', 'y'], range='8G')
+    compass = Compass(placement=['x', 'y', 'z'], field_range='8G')
 
     while True:
         x, y, z, angle = compass.read()
