@@ -4,11 +4,20 @@ from robot_hat import I2C, fileDB
 
 # from filedb import fileDB
 
+# Accelerometer
 # Sensitivity
 # 2g: 1G = 16384
 # 4g: 1G = 8192
 # 8g: 1G = 4096
 # 16g:  1G = 2048
+
+# Gyroscope
+# Sensitivity
+# 125 dps: 1 dps = 262
+# 250 dps: 1 dps = 131
+# 500 dps: 1 dps = 65.5
+# 1000 dps: 1 dps = 32.8
+# 2000 dps: 1 dps = 16.4  (LSB/°/s), 1/16.4 = 0.061°/s 
 
 
 # region: General function
@@ -382,15 +391,44 @@ class SH3001(I2C):
 
     # endregion: Macro Definitions
 
+    ACC_RANGE_DICT = {
+        2: SH3001_ACC_RANGE_2G,
+        4: SH3001_ACC_RANGE_4G,
+        8: SH3001_ACC_RANGE_8G,
+        16: SH3001_ACC_RANGE_16G,
+    }
+
+    GYRO_RANGE_DICT = {
+        125:SH3001_GYRO_RANGE_125,
+        250:SH3001_GYRO_RANGE_250,
+        500:SH3001_GYRO_RANGE_500,
+        1000:SH3001_GYRO_RANGE_1000,
+        2000:SH3001_GYRO_RANGE_2000,
+    }
+
+    ACC_LSB = {
+        2: 16384, # 2g: 1G = 16384
+        4: 8192,
+        8: 4096,
+        16: 2048,
+    }
+
+    GYRO_LSB = {
+        125: 262, # 125dps: 1dps = 262
+        250: 131,
+        500: 65.5,
+        1000: 32.8,
+        2000: 16.4, # 2000 dps: 1 dps = 16.4  (LSB/°/s), 1/16.4 = 0.061°/s 
+    }
 
     # init
-    def __init__(self, db="sh3001.config"):
+    def __init__(self, acc_range=2, gryo_range=2000, db="sh3001.config"):
         super().__init__(address=self.SH3001_ADDRESS)
         if not self.is_avaliable():
             raise IOError("SH3001 is not avaliable")
-        self.sh3001_init()
+        self.sh3001_init(acc_range, gryo_range)
         self.db = fileDB(db=db)
-        self._acc_offset = self.get_from_config('calibrate_offset_list',
+        self.acc_offset = self.get_from_config('calibrate_offset_list',
                                                default_value=str(
                                                    self.new_list(0)))
         self.acc_max = self.get_from_config('calibrate_max_list',
@@ -400,11 +438,11 @@ class SH3001(I2C):
                                             default_value=str(
                                                 self.new_list(0)))
 
-        self._gyro_offset = [0, 0, 0]
+        self.gyro_offset = [0, 0, 0]
         self.data_vector = [0, 0, 0]
 
-        self._acc_offset = [0, 0, 0]
-        self._gyro_offset = [0, 0, 0]
+        self.acc_offset = [0, 0, 0]
+        self.gyro_offset = [0, 0, 0]
 
         self.calibrate()
 
@@ -417,42 +455,18 @@ class SH3001(I2C):
     def new_list(self, value):
         return [value for i in range(3)]
 
-    # def calibrate(self, aram, stopfunc=stop_func, waitfunc=default_wait):
-    #     '''
-    #     calibration routine, sets cal
-    #     '''
-    #     count = 0
-    #     if aram == 'acc':
-    #         while True:
-    #             waitfunc()
-    #             self.data_vector = self._sh3001_getimudata()[0]
+    def sh3001_init(self, acc_range, gyro_range):
+        if acc_range in self.ACC_RANGE_DICT.keys():
+            self.acc_range = acc_range
+            self.acc_lsb = self.ACC_LSB[self.acc_range]
+        else:
+            raise ValueError(f'acc_range must be in +- {self.SH3001_ACC_RANGE} G')
+        if gyro_range in self.GYRO_RANGE_DICT.keys():
+            self.gyro_range = gyro_range
+            self.gyro_lsb = self.GYRO_LSB[self.gyro_range]
+        else:
+            raise ValueError(f'gyro_range must be in +- {self.SH3001_GYRO_RANGE} dps')
 
-    #             self.acc_max = list(map(max, self.acc_max, self.data_vector))
-    #             self.acc_min = list(map(min, self.acc_min, self.data_vector))
-    #             self._acc_offset = list(
-    #                 map(lambda a, b: (a + b) / 2, self.acc_max, self.acc_min))
-    #             print('\033[K\rmax_list: %s   min_list: %s' %
-    #                   (self.acc_max, self.acc_min),
-    #                   end="",
-    #                   flush=True)
-    #     elif aram == 'gyro':
-    #         sum_list = [0, 0, 0]
-    #         count = 0
-    #         for i in range(503):
-    #             if i > 2:
-    #                 sum_list = [
-    #                     sum_list[i] + self.sh3001_getimudata('gyro', 'xyz')[i]
-    #                     for i in range(3)
-    #                 ]
-    #         self._gyro_offset = [
-    #             round(sum_list[i], 2) / 500.0 for i in range(3)
-    #         ]
-    #         print("_gyro_offset:", self._gyro_offset)
-
-    #     else:
-    #         raise ValueError('aram must be acc or gyro')
-
-    def sh3001_init(self):
         regData = [0]
         i = 0
         while ((regData[0] != 0x61) and (i < 3)):
@@ -462,13 +476,13 @@ class SH3001(I2C):
                 return False
 
         self.sh3001_module_reset()
-        self.sh3001_acc_config(self.SH3001_ODR_500HZ, self.SH3001_ACC_RANGE_2G,
+        self.sh3001_acc_config(self.SH3001_ODR_500HZ, self.ACC_RANGE_DICT[self.acc_range],
                                self.SH3001_ACC_ODRX025,
                                self.SH3001_ACC_FILTER_EN)
         self.sh3001_gyro_config(self.SH3001_ODR_500HZ,
-                                self.SH3001_GYRO_RANGE_2000,
-                                self.SH3001_GYRO_RANGE_2000,
-                                self.SH3001_GYRO_RANGE_2000,
+                                self.GYRO_RANGE_DICT[self.gyro_range],
+                                self.GYRO_RANGE_DICT[self.gyro_range],
+                                self.GYRO_RANGE_DICT[self.gyro_range],
                                 self.SH3001_GYRO_ODRX00,
                                 self.SH3001_GYRO_FILTER_EN)
         self.sh3001_temp_config(self.SH3001_TEMP_ODR_63, self.SH3001_TEMP_EN)
@@ -550,26 +564,37 @@ class SH3001(I2C):
     # endregion: sh3001 internal function
 
     # return acc_data,gyro_data
-    def _read_all(self):
+    def read_raw(self):
         try:
             gyro_data = [0, 0, 0]
             acc_data = [0, 0, 0]
-            # regData = [0 for i in range(12)]
-            regData = self.mem_read(12, self.SH3001_ACC_XL)
 
-            acc_data[0] = bytes_toint(regData[1], regData[0])
-            acc_data[1] = bytes_toint(regData[3], regData[2])
-            acc_data[2] = bytes_toint(regData[5], regData[4])
-            # acc_data = [(acc_data[i] - self.acc_cal[i]) for i in range(len(acc_data))]
+            result = self.mem_read(12, self.SH3001_ACC_XL)
+            acc_data[0] = bytes_toint(result[1], result[0])
+            acc_data[1] = bytes_toint(result[3], result[2])
+            acc_data[2] = bytes_toint(result[5], result[4])
 
-            gyro_data[0] = bytes_toint(regData[7], regData[6])
-            gyro_data[1] = bytes_toint(regData[9], regData[8])
-            gyro_data[2] = bytes_toint(regData[11], regData[10])
-            # gyro_data = [gyro_data[i] - self._gyro_offset[i] for i in range(len(gyro_data))]
+            gyro_data[0] = bytes_toint(result[7], result[6])
+            gyro_data[1] = bytes_toint(result[9], result[8])
+            gyro_data[2] = bytes_toint(result[11], result[10])
+
+            # _acc_date = self._read_i2c_block_data(self.SH3001_ACC_XL, 6)
+            # _gyro_date = self._read_i2c_block_data(self.SH3001_GYRO_XL, 6)
+            # _temp_date = self._read_i2c_block_data(self.SH3001_TEMP_ZL, 2)
+
+            # acc_data[0] = bytes_toint(_acc_date[1], _acc_date[0])
+            # acc_data[1] = bytes_toint(_acc_date[3], _acc_date[2])
+            # acc_data[2] = bytes_toint(_acc_date[5], _acc_date[4])
+
+            # gyro_data[0] = bytes_toint(_gyro_date[1], _gyro_date[0])
+            # gyro_data[1] = bytes_toint(_gyro_date[3], _gyro_date[2])
+            # gyro_data[2] = bytes_toint(_gyro_date[5], _gyro_date[4])
+
+            # temp_data = bytes_toint(_temp_date[1], _temp_date[0])
 
             return acc_data, gyro_data
         except Exception as e:
-            # print("_sh3001_getimudata error: ", e)
+            print("_sh3001_getimudata error: ", e)
             return False
 
     def calibrate(self):
@@ -580,10 +605,11 @@ class SH3001(I2C):
         _gx = 0
         _gy = 0
         _gz = 0
-        sensitivity = 16384 # 2G
-        _time = 10
+        _time = 200
+        _cnt = 0
         for _ in range(_time):
-            data = self._read_all()
+            _cnt += 1
+            data = self.read_raw()
             if data == False:
                 break
 
@@ -594,80 +620,37 @@ class SH3001(I2C):
             _gx += self.gyro_data[0]
             _gy += self.gyro_data[1]
             _gz += self.gyro_data[2]
-            time.sleep(0.1)
+            time.sleep(0.01)
 
-        self._acc_offset[0] = round(0- _ax/_time, 0)
-        self._acc_offset[1] = round(0 - _ay/_time, 0)
-        self._acc_offset[2] = round(-sensitivity - _az/_time, 0)
-        self._gyro_offset[0] = round(0 - _gx/_time, 0)
-        self._gyro_offset[1] = round(0 - _gy/_time, 0)
-        self._gyro_offset[2] = round(0 - _gz/_time, 0)
+        self.acc_offset[0] = round(0- _ax/_time, 0)
+        self.acc_offset[1] = round(0 - _ay/_time, 0)
+        self.acc_offset[2] = round(-self.acc_lsb - _az/_time, 0)
+        self.gyro_offset[0] = round(0 - _gx/_time, 0)
+        self.gyro_offset[1] = round(0 - _gy/_time, 0)
+        self.gyro_offset[2] = round(0 - _gz/_time, 0)
 
-    def read_all(self):
-        data = self._read_all()
+        print("acc_offset: ", self.acc_offset)
+        print("gyro_offset: ", self.gyro_offset)
+
+    def read(self):
+        data = self.read_raw()
         self.acc_data, self.gyro_data = data
         #
-        self.acc_data[0] += self._acc_offset[0]
-        self.acc_data[1] += self._acc_offset[1]
-        self.acc_data[2] += self._acc_offset[2]
-        self.gyro_data[0] += self._gyro_offset[0]
-        self.gyro_data[1] += self._gyro_offset[1]
-        self.gyro_data[2] += self._gyro_offset[2]
+        acc_x, acc_y, acc_z = self.acc_data
+        gyro_x, gyro_y, gyro_z = self.gyro_data
+        acc_offset_x, acc_offset_y, acc_offset_z = self.acc_offset
+        gyro_offset_x, gyro_offset_y, gyro_offset_z = self.gyro_offset
         #
-        return (self.acc_data, self.gyro_data)
+        acc_x = (acc_x + acc_offset_x) / self.acc_lsb
+        acc_y = (acc_y + acc_offset_y) / self.acc_lsb
+        acc_z = (acc_z + acc_offset_z) / self.acc_lsb
+        gyro_x = (gyro_x + gyro_offset_x) / self.gyro_lsb
+        gyro_y = (gyro_y + gyro_offset_y) / self.gyro_lsb
+        gyro_z = (gyro_z + gyro_offset_z) / self.gyro_lsb
+        #
+        return (acc_x, acc_y, acc_z), (gyro_x, gyro_y, gyro_z)
 
-    def read(self, aram, axis):
-        acc_data, gyro_data = self.read_all()
-        acc_data = [(acc_data[i] - self._acc_offset[i])
-                   for i in range(len(acc_data))]
-        gyro_data = [
-            gyro_data[i] - self._gyro_offset[i] for i in range(len(gyro_data))
-        ]
-        # print()
-
-        if aram == 'acc':
-            if axis == 'x':
-                return acc_data[0]
-            elif axis == 'y':
-                return acc_data[1]
-            elif axis == 'z':
-                return acc_data[2]
-            elif axis == 'xy':
-                return [acc_data[0], acc_data[1]]
-            elif axis == 'xz':
-                return [acc_data[0], acc_data[2]]
-            elif axis == 'yz':
-                return [acc_data[1], acc_data[2]]
-            elif axis == 'xyz':
-                return [acc_data[0], acc_data[1], acc_data[2]]
-            # else:
-            #     raise ValueError('axis must be x,y,z,xy,xz,xyz')
-
-        elif aram == 'gyro':
-            if axis == 'x':
-                return gyro_data[0]
-            elif axis == 'y':
-                return gyro_data[1]
-            elif axis == 'z':
-                return gyro_data[2]
-            elif axis == 'xy':
-                return [gyro_data[0], gyro_data[1]]
-            elif axis == 'xz':
-                return [gyro_data[0], gyro_data[2]]
-            elif axis == 'yz':
-                return [gyro_data[1], gyro_data[2]]
-            elif axis == 'xyz':
-                return [gyro_data[0], gyro_data[1], gyro_data[2]]
-            # else:
-            #     raise ValueError('axis must be x,y,z,xy,xz,xyz')
-
-        elif aram == 'all':
-            return acc_data, gyro_data
-
-        else:
-            raise ValueError('aram must be acc ,gyro or all')
-
-    def sh3001_gettempdata(self):
+    def get_temp_data(self):
         tempref = [0, 0]
         regData = self.mem_read(2, self.SH3001_TEMP_CONF0)
         tempref[0] = regData[0] & 0x0F << 8 | regData[1]
@@ -679,7 +662,7 @@ class SH3001(I2C):
 
     def set_offset(self, offset_list=None):
         if offset_list == None:
-            offset_list = self._acc_offset
+            offset_list = self.acc_offset
         self.db.set('calibrate_offset_list', str(offset_list))
         self.db.set('calibrate_max_list', str(self.acc_max))
         self.db.set('calibrate_min_list', str(self.acc_min))
@@ -693,15 +676,14 @@ class SH3001(I2C):
     #             self.calibrate('acc')
     #     except KeyboardInterrupt:
     #         print("")
-    #         self.set_offset(self._acc_offset)
-    #         print('offset: ', self._acc_offset)
-
+    #         self.set_offset(self.acc_offset)
+    #         print('offset: ', self.acc_offset)
 
 
 if __name__ == '__main__':
-    imu = SH3001(db='/opt/zeus-pi/sh3001.conf')
+    imu = SH3001(acc_range=2, gryo_range=2000, db='/opt/zeus-pi/sh3001.conf')
 
     while True:
-        data = imu.read_all()
+        data = imu.read()
         print('data: ', data)
         time.sleep(0.5)
