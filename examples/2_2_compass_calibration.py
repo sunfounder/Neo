@@ -30,14 +30,6 @@ def main():
 def loop():
     global _on_calibration, x_min, x_max, y_min, y_max, z_min, z_max
     global print_st, st
-    x, y, z, angle = my_car.read_compass()
-    if time.time() - print_st > 0.5:
-        print(f"x: {x:.2f} mGuass   y: {y:.2f} mGuass   z: {z:.2f} mGuass   angle: {angle:.2f}°")
-        # draw tips on bottom
-        with term.location():
-            print(term.move_xy(0, term.height - 1), end='')
-            print(term.black_on_skyblue(f'  Press "q" to start / stop calibration  '), end='', flush=True)
-        print_st = time.time()
 
     key = term.inkey(timeout=0.01)
     if key == 'q':
@@ -51,26 +43,35 @@ def loop():
             my_car.stop()
 
     if _on_calibration:
+        x_raw, y_raw, z_raw = my_car.read_compass_raw()
+        if time.time() - print_st > 0.5:
+            print(f"x_raw: {x_raw}   y_raw: {y_raw}   z_raw: {z_raw}               ")
+            # draw tips on bottom
+            with term.location():
+                print(term.move_xy(0, term.height - 1), end='')
+                print(term.black_on_skyblue(f'  Press "q" to start / stop calibration  '), end='', flush=True)
+            print_st = time.time()
+
         _changed = False
-        if x < x_min:
-            x_min = x
+        if x_raw < x_min:
+            x_min = x_raw
             _changed = True
-        elif x > x_max:
-            x_max = x
+        elif x_raw > x_max:
+            x_max = x_raw
             _changed = True
         
-        if y < y_min:
-            y_min = y
+        if y_raw < y_min:
+            y_min = y_raw
             _changed = True
-        elif y > y_max:
-            y_max = y
+        elif y_raw > y_max:
+            y_max = y_raw
             _changed = True
 
-        if z < z_min:
-            z_min = z
+        if z_raw < z_min:
+            z_min = z_raw
             _changed = True
-        elif z > z_max:
-            z_max = z
+        elif z_raw > z_max:
+            z_max = z_raw
             _changed = True
 
         if _changed:
@@ -80,6 +81,16 @@ def loop():
             my_car.config.write()
             _on_calibration = False
             my_car.stop()
+    else:
+        x, y, z, angle = my_car.read_compass()
+        if time.time() - print_st > 0.5:
+            print(f"x: {x:.2f} mGuass   y: {y:.2f} mGuass   z: {z:.2f} mGuass   angle: {angle:.2f}°")
+            # draw tips on bottom
+            with term.location():
+                print(term.move_xy(0, term.height - 1), end='')
+                print(term.black_on_skyblue(f'  Press "q" to start / stop calibration  '), end='', flush=True)
+            print_st = time.time()
+
 
 
 if __name__ == '__main__':
