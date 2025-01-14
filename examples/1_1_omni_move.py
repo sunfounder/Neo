@@ -2,7 +2,7 @@ from zeus_pi import ZeusPi
 from time import sleep
 
 my_car = ZeusPi()
-power = 30
+power = 50
 
 try:
     while True:
