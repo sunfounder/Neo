@@ -238,13 +238,13 @@ class Compass(QMC6310):
         self.y_offset = (self.y_min + self.y_max) / 2
         self.z_offset = (self.z_min + self.z_max) / 2
         # soft iron calibration
-        avg_delta_x = (self.x_max - self.x_min) / 2
-        avg_delta_y = (self.y_max - self.y_min) / 2
-        avg_delta_z = (self.z_max - self.z_min) / 2
-        avg_delta = (avg_delta_x + avg_delta_y + avg_delta_z) / 3
-        self.x_scale = avg_delta / avg_delta_x
-        self.y_scale = avg_delta / avg_delta_y
-        self.z_scale = avg_delta / avg_delta_z
+        # avg_delta_x = (self.x_max - self.x_min) / 2
+        # avg_delta_y = (self.y_max - self.y_min) / 2
+        # avg_delta_z = (self.z_max - self.z_min) / 2
+        # avg_delta = (avg_delta_x + avg_delta_y + avg_delta_z) / 3
+        # self.x_scale = avg_delta / avg_delta_x
+        # self.y_scale = avg_delta / avg_delta_y
+        # self.z_scale = avg_delta / avg_delta_z
         # corrected_x = (sensor_x - offset_x) * x_scale
         # corrected_y = (sensor_y - offset_y) * y_scale
         # corrected_z = (sensor_z - offset_z) * z_scale
