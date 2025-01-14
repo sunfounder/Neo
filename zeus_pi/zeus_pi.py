@@ -5,11 +5,13 @@ from robot_hat import Config
 from .rgb_strip import RGB_Strip
 from .sh3001 import SH3001
 from .compass import Compass
+from .pid import PID
 from .utils import *
 
 from math import pi, sqrt, sin, cos
 import time
 import ast
+import traceback
 
 class ZeusPi():
 
@@ -50,7 +52,7 @@ class ZeusPi():
 
     COMPASS_PLACEMENT = ['x', 'y', 'z']
 
-    ROT_MAX_POWER_PERCENT = 0.5
+    ROTATE_RATIO = 0.5
 
     DEFAULT_RGB_CONFIG = {
         'rgb_led_count': 16,
@@ -73,6 +75,14 @@ class ZeusPi():
     CAM_TILT_MIN = -55
     CAM_TILT_MAX = 90
 
+    COMPASS_PID_KP = 0.8
+    COMPASS_PID_KI = 0.0
+    COMPASS_PID_KD = 20.0
+    COMPASS_PID_OUTPUT_MAX = 100
+
+    ACC_RANGE = 2 # 2G, 4G, 8G, 16G
+    GROYTY_RANGE = 2000 # 125dps, 250dps, 500dps, 1000dps, 2000dps
+
     def __init__(self,
                 motor_pins:list=[M0_A_PIN, M0_B_PIN, M1_A_PIN, M1_B_PIN, M2_A_PIN, M2_B_PIN, M3_A_PIN, M3_B_PIN],
                 servo_pins:list=[CAM_PAN_PIN, CAM_TILT_PIN],
@@ -89,6 +99,7 @@ class ZeusPi():
 
         # --------- variables ---------
         self.motors_speed = [0, 0, 0, 0]
+        self.origin_heading = 0
 
         # --------- config_flie ---------
         self.config = Config(path=config,
@@ -131,16 +142,16 @@ class ZeusPi():
             error(e)
 
         # --------- servos init ---------
-        try:
-            debug("servos init ... ", end='', flush=True)
-            # init
-            self.cam_pan = Servo(servo_pins[0])
-            self.cam_tilt = Servo(servo_pins[1])
-            # done
-            debug("ok")
-        except Exception as e:
-            error('fail')
-            error(e)
+        # try:
+        #     debug("servos init ... ", end='', flush=True)
+        #     # init
+        #     self.cam_pan = Servo(servo_pins[0])
+        #     self.cam_tilt = Servo(servo_pins[1])
+        #     # done
+        #     debug("ok")
+        # except Exception as e:
+        #     error('fail')
+        #     error(e)
 
         # --------- grayscale module init ---------
         try:
@@ -178,7 +189,7 @@ class ZeusPi():
         # --------- imu sh3001 init ---------
         try:
             debug("imu sh3001 init ... ", end='', flush=True)
-            self.imu = SH3001(db=config)
+            self.imu = SH3001(acc_range=self.ACC_RANGE, gryo_range=self.GROYTY_RANGE, db=config)
             debug("ok")
         except Exception as e:
             error("fail")
@@ -188,13 +199,15 @@ class ZeusPi():
         try:
             debug("compass qmc6310 init ... ", end='', flush=True)
             self.compass_placement = compass_placement
-            self.compass = Compass(self.compass_placement)
-            self.set_compass_offset(*self.compass_offset)
-            self.set_compass_magnetic_declination(self.magnetic_declination)
+            self.compass = Compass(placement=self.compass_placement,
+                                   offset=self.compass_offset,
+                                   declination=self.magnetic_declination
+                                   )
             debug("ok")
         except Exception as e:
             error("fail")
-            error(e)
+            _track = traceback.format_exc()
+            error(_track)
 
         # --------- ws2812 rgb_LEDs init ---------
         try:
@@ -217,7 +230,14 @@ class ZeusPi():
 
         # --------- microphone check ---------
 
+        # --------- pid controller init ---------
+        self.move_pid = PID(kp=self.COMPASS_PID_KP,
+                               ki=self.COMPASS_PID_KI,
+                               kd=self.COMPASS_PID_KD,
+                               out_max=self.COMPASS_PID_OUTPUT_MAX
+                               )
 
+        # self.reset_heading()
         # --- reset motors and servos ---
         self.reset()
 
@@ -291,23 +311,20 @@ class ZeusPi():
         #
         rad = angle * pi / 180
 
-        rot_ratio = rotate_power * self.ROT_MAX_POWER_PERCENT
-        max_move_ratio = (100 - rot_ratio) / (sqrt(2))
+        rotate_power = rotate_power * self.ROTATE_RATIO
+        move_power = move_power  / (sqrt(2))
+        move_power = move_power * (1 - self.ROTATE_RATIO)
 
-        move_ratio = (move_power / 100) * max_move_ratio
-        if (move_ratio > max_move_ratio):
-            move_ratio = max_move_ratio
-        
         if drift:
-            power_0 = (sin(rad) + cos(rad)) * move_ratio
-            power_1 = (sin(rad) - cos(rad)) * move_ratio + rot_ratio * 2
-            power_2 = (sin(rad) + cos(rad)) * move_ratio - rot_ratio * 2
-            power_3 = (sin(rad) - cos(rad)) * move_ratio
+            power_0 = (sin(rad) + cos(rad)) * move_power
+            power_1 = (sin(rad) - cos(rad)) * move_power + rotate_power * 2
+            power_2 = (sin(rad) + cos(rad)) * move_power - rotate_power * 2
+            power_3 = (sin(rad) - cos(rad)) * move_power
         else:
-            power_0 = (sin(rad) + cos(rad)) * move_ratio + rot_ratio
-            power_1 = (sin(rad) - cos(rad)) * move_ratio + rot_ratio
-            power_2 = (sin(rad) + cos(rad)) * move_ratio - rot_ratio
-            power_3 = (sin(rad) - cos(rad)) * move_ratio - rot_ratio
+            power_0 = (sin(rad) + cos(rad)) * move_power + rotate_power
+            power_1 = (sin(rad) - cos(rad)) * move_power + rotate_power
+            power_2 = (sin(rad) + cos(rad)) * move_power - rotate_power
+            power_3 = (sin(rad) - cos(rad)) * move_power - rotate_power
 
         self.set_motors(power_0, power_1, power_2, power_3)
 
@@ -338,6 +355,44 @@ class ZeusPi():
     def turn_right(self, power):
         self.move(0, 0, -power)
 
+
+    def move_field_centric(self, angle, move_power, heading=0, drift=False, angFlag=False):
+        current_heading = 0
+        offset = 0
+        rot = 0
+        current_heading = self.read_compass_angle()
+
+        error = current_heading - self.origin_heading - heading
+        if error > 180:
+            error -= 360
+        elif error < -180:
+            error += 360
+
+        if error > 1 or error < -1:
+            offset += self.move_pid.update(error)
+            rot += max(-100, min(100, offset))
+
+
+        if not angFlag and (angle != 0 or drift == True):
+            angle = angle - current_heading + self.origin_heading
+
+        print(f'error: {error:.4f} offset: {offset} rot: {rot} angle: {angle}')
+        self.move(angle, move_power, rot, drift)
+
+        return current_heading, offset
+
+
+    def set_move_pid(self, kp=None, ki=None, kd=None, out_max=None):
+        if kp is not None:
+            self.move_pid.kp = kp
+        if ki is not None:
+            self.move_pid.ki = ki
+        if kd is not None:
+            self.move_pid.kd = kd
+        if out_max is not None:
+            self.move_pid.out_max = out_max
+
+
     # servos
     # ===============================================================================
     def set_cam_pan(self, angle):
@@ -358,24 +413,41 @@ class ZeusPi():
     # ----
     def reset(self):
         self.stop_motors()
-        self.set_cam_pan(0)
-        self.set_cam_tilt(0)
+        # self.set_cam_pan(0)
+        # self.set_cam_tilt(0)
 
     # compass
     # ===============================================================================
+    def read_compass_raw(self):
+        return self.compass.read_raw()
+
     def read_compass(self):
         return self.compass.read()
+    
+    def read_compass_angle(self, filter=False):
+        return self.compass.read_angle(filter)
     
     def set_compass_offset(self, x_min, x_max, y_min, y_max, z_min, z_max):
         self.compass_offset = [x_min, x_max, y_min, y_max, z_min, z_max]
         self.compass_offset = [round(x, 2) for x in self.compass_offset]
         self.config['compass']['offset'] = self.compass_offset
-        self.compass.set_calibration(*self.compass_offset)
+        self.compass.set_offset(self.compass_offset)
 
     def set_compass_magnetic_declination(self, declination):
         self.compass.set_magnetic_declination(declination)
         self.config['compass']['magnetic_declination'] = declination
 
+    def reset_heading(self):
+        for _ in range(10):
+            self.origin_heading = self.read_compass_angle()
+
+    # imu
+    # ===============================================================================   
+    def read_imu_raw(self):
+        return self.imu.read_raw()
+
+    def read_imu(self):
+        return self.imu.read()
 
     # ir_obstacle
     # ===============================================================================
