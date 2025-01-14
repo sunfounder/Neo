@@ -20,7 +20,7 @@ cam_tilt_offset = round(my_car.cam_tilt_offset, 1)
 
 MAX_SERVOS_OFFSET = 20.0
 SERVOS_CALIBRATE_STEP = 0.2
-MOTORS_TEST_POWER = 50
+MOTORS_TEST_POWER = 35
 
 compass_offset = [0]*6
 
@@ -305,7 +305,7 @@ def test_servos():
     my_car.set_cam_pan(-30)
     time.sleep(.2)
     my_car.set_cam_pan(30)
-    time.sleep(2)
+    time.sleep(.2)
     my_car.set_cam_pan(0)
     time.sleep(.2)
     my_car.set_cam_tilt(-30)
@@ -422,10 +422,13 @@ def motors_and_servos_calibration():
             clear_bottom()
             _box_width = ASK_SAVE['box_width']
             if draw_ask(ASK_SAVE['content'], location=(int((CONTENT_WIDTH-_box_width)/2), 6), align='center', box_width=_box_width):
-                # TODO: save to config file
                 my_car.set_motors_direction(motors_direction)
                 my_car.set_cam_servos_offset([cam_pan_offset, cam_tilt_offset])
-                my_car.config.write()
+                my_car.config.write() # write config to file
+                #
+                my_car.set_cam_pan(0)
+                my_car.set_cam_tilt(0)
+                #
                 _has_saved = True
                 show_static_content()
                 draw_bottom('Saved.')
