@@ -7,6 +7,6 @@ try:
     while True:
         distance = my_car.ultrasonic.read()
         print(f"distance: {distance} cm")
-        sleep(0.5)
+        sleep(0.1)
 finally:
     my_car.stop()
