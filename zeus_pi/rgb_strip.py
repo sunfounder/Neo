@@ -3,8 +3,26 @@ import threading
 
 from math import cos, pi
 
+# https://github.com/adafruit/Adafruit_CircuitPython_NeoPixel_SPI
+# https://github.com/adafruit/Adafruit_CircuitPython_Pixelbuf/blob/main/adafruit_pixelbuf.py
+import board
+import neopixel_spi as neopixel
+from neopixel_spi import NeoPixel_SPI
+
 # utils
 # =================================================================
+COLORS = {
+    'white':   (255, 255, 255),
+    'black':   (0,   0,   0),
+    'red':     (255,   0,   0),
+    'yellow':  (255, 225,   0),
+    'green':   (0, 255,   0),
+    'blue':    (0,   0, 255),
+    'cyan':    (0, 255, 255),
+    'magenta': (255,   0, 255),
+    'pink':    (255, 100, 100)
+}
+
 def map_value(x, from_min, from_max, to_min, to_max):
     return (x - from_min) * (to_max - to_min) / (from_max - from_min) + to_min
 
@@ -57,103 +75,98 @@ def hsl_to_rgb( hue, saturation=1, brightness=1):
     b = int(_B_val * 255)
     return (r, g, b)
 
+def color_2_tuple(color):
+    '''
+    convert color to tuple like (255, 255, 255)
+
+    :param color: str, hex, list, tuple, int, eg: 'ffffff', '#ffffff', '#FFFFFF', (255, 255, 255), 0xffffff
+    :return: tuple
+    '''
+    try:
+        if isinstance(color, str):
+            if color.lower() in COLORS:
+                return COLORS[color.lower()]
+            elif color.startswith('#') and len(color) == 7:
+                return (int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16))
+            else:
+                raise # trigger exception
+        elif isinstance(color, list) or isinstance(color, tuple):
+            return (color[0], color[1], color[2])
+        elif isinstance(color, int):
+            return (color >> 16, color >> 8 & 0xff, color & 0xff)
+    except:
+        raise ValueError('\033[0;31m%s\033[0m'%("Invalid color value."))
+
 # Variables define
 # =================================================================
 RGB_STYLES = [
     'solid', 'breathing', 'flow', 'flow_reverse', 'rainbow', 'rainbow_reverse', 'hue_cycle'
 ]
 
-default_config = {
-    'rgb_led_count': 16,
-    'rgb_color': '#00ffff',
-    'rgb_brightness': 100,  # 0-100
-    'rgb_style': 'breath',
-    'rgb_speed': 50,
-}
 
-
-class WS2812_SPI():
+class WS2812_SPI(NeoPixel_SPI):
 
     def __init__(self, led_num):
-
-        # https://github.com/adafruit/Adafruit_CircuitPython_NeoPixel_SPI
-        import board
-        import neopixel_spi as neopixel
-        from neopixel_spi import NeoPixel_SPI
 
         spi = board.SPI()
         PIXEL_ORDER = neopixel.GRB
 
-        self.strip = NeoPixel_SPI(
-                spi, led_num, pixel_order=PIXEL_ORDER, auto_write=False
-        )
+        super().__init__(spi,
+                        led_num,
+                        pixel_order=PIXEL_ORDER,
+                        brightness=1.0,
+                        auto_write=True
+                        )
         time.sleep(0.01)
         self.clear()
 
     def show(self):
-        self.strip.show()
+        super().show()
 
     def clear(self):
-        self.strip.fill(0)
-        self.strip.show()
+        super().fill(0)
+        super().show()
 
     def fill(self, color:str='#000000'):
-        self.strip.fill(color)
+        super().fill(color)
 
     def fill_pattern(self, pattern):
         for i in range(self.led_num):
-            self.strip[i] = pattern[i]
+            self[i] = pattern[i]
+
+    def set_brightness(self, value):
+        self.brightness = value
+    
+    def get_brightness(self):
+        return self.brightness
 
 #TODO:
 #  class RGBStrip_I2C()
 #
 #
 
-class RGB_Strip():
-
-    default_config = {
-        'rgb_led_count': 16,
-        'rgb_color': '#00ffff',
-        'rgb_brightness': 100,  # 0-100
-        'rgb_style': 'breath',
-        'rgb_speed': 100,
-    }
+class RGB_Strip(WS2812_SPI):
 
     lights_order = [
         0, 1, 2, 3, 4, 5, 6, 7, 
         8, 9, 10, 11, 12, 13, 14, 15,
     ]
 
-    def __init__(self, config=default_config, driver='ws2812_spi'):
+    def __init__(self, led_num):
 
-        self.led_num = None
-        self.driver = driver
+        self.led_num = led_num
         self.running = False
         self._is_ready = False
-        self.color = None
-        self.speed = None
-        self.style = None
-        self.brightness = None
-        self.update_config(config, log=False)
+        self.style = 'breath'
+        self.color = (0, 255, 255)
+        self.speed = 80
 
-        # try:
-        if self.driver == 'ws2812_spi':
-            self.rgbs = WS2812_SPI(self.led_num)
-        # elif self.driver == 'rgbstrip_i2c':
-        #     self.rgbs = RGBStrip_I2C()
-        self._is_ready = True
-        # except Exception as e:
-        #     self._is_ready = False
-        #     print(f"Error: {e}")
-
-    def clear(self):
-        self.rgbs.clear()
-
-    def show(self):
-        self.rgbs.show()
-
-    def fill(self, color):
-        self.rgbs.fill(color)
+        try:
+            super().__init__(self.led_num)
+            self._is_ready = True
+        except Exception as e:
+            self._is_ready = False
+            raise(e)
 
     def loop(self):
         self.running = True
@@ -187,74 +200,39 @@ class RGB_Strip():
         self.show()
         print("WS2812 Stop")
 
-    def update_config(self, config, log=True):
-        if 'rgb_led_count' in config:
-            if not isinstance(config['rgb_led_count'], int):
-                if log:
-                    print("Invalid rgb_led_count")
-                return
-            self.led_num = config['rgb_led_count']
+    def set_style(self, style, color, speed, log=False):
+        # style
+        if not isinstance(style, str) or style not in RGB_STYLES:
             if log:
-                print(f"Update LED count: {self.led_num}")
-        if 'rgb_enable' in config:
-            if not isinstance(config['rgb_enable'], bool):
-                if log:
-                    print("Invalid rgb_enable")
-                return
-            self.enable = config['rgb_enable']
+                print(f"Invalid style: {style}")
+            return
+        self.style = style
+        # color
+        self.color = color_2_tuple(color)
+        # speed
+        if not isinstance(speed, int):
             if log:
-                print(f"Update RGB enable: {self.enable}")
-        if 'rgb_color' in config:
-            if not isinstance(config['rgb_color'], str):
-                if log:
-                    print("Invalid rgb_color")
-                return
-            self.color = hex_to_rgb(config['rgb_color'])
-            if log:
-                print(f"Update RGB color: {self.color}")
-        if 'rgb_brightness' in config:
-            if not isinstance(config['rgb_brightness'], int):
-                if log:
-                    print("Invalid rgb_brightness")
-                return
-            self.brightness = config['rgb_brightness']
-            if log:
-                print(f"Update RGB brightness: {self.brightness}")
-        if 'rgb_speed' in config:
-            if not isinstance(config['rgb_speed'], int):
-                if log:
-                    print("Invalid rgb_speed")
-                return
-            self.speed = config['rgb_speed']
-            if log:
-                print(f"Update RGB speed: {self.speed}")
-        if 'rgb_style' in config:
-            if not isinstance(config['rgb_style'], str) or config['rgb_style'] not in RGB_STYLES:
-                if log:
-                    print("Invalid rgb_style")
-                return
-            self.style = config['rgb_style']
-            if log:
-                print(f"Update RGB style: {self.style}")
+                print(f"Invalid speed: {speed}")
+            return
+        self.speed = speed
+
     # styles
     # =================================================================
     def solid(self):
-        color = [int(x * self.brightness * 0.01) for x in self.color]
-        self.strip.fill(color)
+        self.fill(self.color)
         self.show()
         time.sleep(1)
 
     def breathing(self):
         self.counter_max = 200
         delay = map_value(self.speed, 0, 100, 0.1, 0.001)
-        color = [int(x * self.brightness * 0.01) for x in self.color]
 
         if self.counter < 100:
             i = self.counter
-            r, g, b = [int(x * i * 0.01) for x in color]
+            r, g, b = [int(x * i * 0.01) for x in self.color]
         else:
             i = 200 - self.counter
-            r, g, b = [int(x * i * 0.01) for x in color]
+            r, g, b = [int(x * i * 0.01) for x in self.color]
         self.fill((r, g, b))
         self.show()
         time.sleep(delay)
@@ -262,14 +240,13 @@ class RGB_Strip():
     def flow(self, order = None):
         self.counter_max = self.led_num
         delay = map_value(self.speed, 0, 100, 0.5, 0.1)
-        color = [int(x * self.brightness * 0.01) for x in self.color]
         
         if order is None:
             order = self.lights_order
 
         self.fill(0)
         index = self.lights_order[self.counter]
-        self.rgbs.strip[index] = color
+        self[index] = self.color
         self.show()
         time.sleep(delay)
 
@@ -278,14 +255,41 @@ class RGB_Strip():
         self.flow(order)
 
 if __name__ == '__main__':
+    try:
+        led_num = 16
+        rgbs = RGB_Strip(led_num)
 
-    config = {
-        'rgb_led_count': 16,
-        'rgb_color': '#0a000a',
-        'rgb_brightness': 100,
-        'rgb_style': 'flow',
-        'rgb_speed':50,
-    }
+        # --- pre style ---
+        rgbs.set_style('flow', (0, 0, 255), 80)
+        rgbs.start()
+        print(f'starting rgb strip, style: {rgbs.style}, brightness:{rgbs.brightness}')
+        time.sleep(3)
+        rgbs.stop()
 
-    rgb = RGB_Strip(config)
-    rgb.start()
+        # --- set rgb items ---
+        hue_delta = 360 * 1.0 / led_num 
+        for i in range(led_num):
+            hue = i * hue_delta
+            color = hsl_to_rgb(hue, 1, 1)
+            rgbs[i] = color
+            rgbs.show()
+            time.sleep(0.1)
+       
+       # --- change brightness ---
+        while True:
+            for i in range(21):
+                brightness = i / 20
+                print(f'changing brightness to {brightness}')
+                rgbs.brightness = brightness
+                rgbs.show()
+                time.sleep(0.1)
+            for i in range(20, -1, -1):
+                brightness = i / 20
+                print(f'changing brightness to {brightness}')
+                rgbs.brightness = brightness
+                rgbs.show()
+                time.sleep(0.1)
+    finally:
+        rgbs.stop()
+
+
