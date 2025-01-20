@@ -13,6 +13,12 @@ import time
 import ast
 import traceback
 
+import imufusion   # https://github.com/xioTechnologies/Fusion
+import numpy as np
+
+from multiprocessing import Process, Value, Array
+
+
 class ZeusPi():
 
     CONFIG = f'/opt/zeus-pi/zeus-pi.config'
@@ -54,14 +60,7 @@ class ZeusPi():
 
     ROTATE_RATIO = 0.5
 
-    DEFAULT_RGB_CONFIG = {
-        'rgb_led_count': 16,
-        'rgb_color': '#0a000a',
-        'rgb_brightness': 100,
-        'rgb_style': 'flow',
-        'rgb_speed':100,
-    }
-
+    RGB_LEDS_NUM = 16
 
     DEFAULT_MOTORS_DIRECTION = [1, 1, 0, 0] # Note: in python, 0 and None is False, 1, -1 etc. is True
 
@@ -75,13 +74,25 @@ class ZeusPi():
     CAM_TILT_MIN = -55
     CAM_TILT_MAX = 90
 
-    COMPASS_PID_KP = 0.8
-    COMPASS_PID_KI = 0.0
-    COMPASS_PID_KD = 20.0
-    COMPASS_PID_OUTPUT_MAX = 100
+    MOVE_PID_KP = 0.8
+    MOVE_PID_KI = 0.0
+    MOVE_PID_KD = 20.0
+    MOVE_PID_OUTPUT_MAX = 100
+
+    MOVE_ERROR_IGNORE = 1 # degrees
 
     ACC_RANGE = 2 # 2G, 4G, 8G, 16G
     GROYTY_RANGE = 2000 # 125dps, 250dps, 500dps, 1000dps, 2000dps
+
+    IMU_FUSION_SAMPLE_RATE = 200 # Hz
+    IMU_FUSION_SETTINGS = [
+        imufusion.CONVENTION_NWU,  # convention
+        0.5,  # gain
+        2000,  # gyroscope range
+        0,  # acceleration rejection
+        0,  # magnetic rejection
+        2* IMU_FUSION_SAMPLE_RATE,  # recovery trigger period = 2 seconds
+    ]
 
     def __init__(self,
                 motor_pins:list=[M0_A_PIN, M0_B_PIN, M1_A_PIN, M1_B_PIN, M2_A_PIN, M2_B_PIN, M3_A_PIN, M3_B_PIN],
@@ -100,6 +111,19 @@ class ZeusPi():
         # --------- variables ---------
         self.motors_speed = [0, 0, 0, 0]
         self.origin_heading = 0
+
+        self.imu_fusion_process = None
+        self.imu_fusion_run = False
+        self.gyro_raw = Array('d', 3)
+        self.mag_raw = Array('d', 3)
+        self.acc = Array('d', 3)
+        self.gyro = Array('d', 3)
+        self.mag = Array('d', 3)
+        self._imufusion_timeout_cnt = Value('I', 0) # unsigned int
+        self._imufusion_take = Value('d', 0)
+        self.roll = Value('f', 0.0) # float
+        self.pitch = Value('f', 0.0)
+        self.yaw = Value('f', 0.0)
 
         # --------- config_flie ---------
         self.config = Config(path=config,
@@ -142,16 +166,16 @@ class ZeusPi():
             error(e)
 
         # --------- servos init ---------
-        # try:
-        #     debug("servos init ... ", end='', flush=True)
-        #     # init
-        #     self.cam_pan = Servo(servo_pins[0])
-        #     self.cam_tilt = Servo(servo_pins[1])
-        #     # done
-        #     debug("ok")
-        # except Exception as e:
-        #     error('fail')
-        #     error(e)
+        try:
+            debug("servos init ... ", end='', flush=True)
+            # init
+            self.cam_pan = Servo(servo_pins[0])
+            self.cam_tilt = Servo(servo_pins[1])
+            # done
+            debug("ok")
+        except Exception as e:
+            error('fail')
+            error(e)
 
         # --------- grayscale module init ---------
         try:
@@ -179,8 +203,8 @@ class ZeusPi():
         # --------- ir obstacle init ---------
         try:
             debug("ir obstacle init ... ", end='', flush=True)
-            self.ir_obstacle_left = Pin(ir_obstacle_pins[0], mode=Pin.IN, pull=Pin.PULL_DOWN)
-            self.ir_obstacle_right = Pin(ir_obstacle_pins[1], mode=Pin.IN, pull=Pin.PULL_DOWN)
+            self.ir_obstacle_left = Pin(ir_obstacle_pins[0], mode=Pin.IN, pull=Pin.PULL_NONE, active_state=True)
+            self.ir_obstacle_right = Pin(ir_obstacle_pins[1], mode=Pin.IN, pull=Pin.PULL_NONE, active_state=True)
             debug("ok")
         except Exception as e:
             error("fail")
@@ -189,6 +213,8 @@ class ZeusPi():
         # --------- imu sh3001 init ---------
         try:
             debug("imu sh3001 init ... ", end='', flush=True)
+            self.acc_raw = Array('f', 3)
+            self.gyro_raw = Array('f', 3)
             self.imu = SH3001(acc_range=self.ACC_RANGE, gryo_range=self.GROYTY_RANGE, db=config)
             debug("ok")
         except Exception as e:
@@ -212,8 +238,7 @@ class ZeusPi():
         # --------- ws2812 rgb_LEDs init ---------
         try:
             debug("ws2812 rgb_LEDs init ... ", end='', flush=True)
-            self.rgb_config = self.DEFAULT_RGB_CONFIG
-            self.rgb_strip = RGB_Strip(self.rgb_config)
+            self.rgbs = RGB_Strip(self.RGB_LEDS_NUM)
             debug("ok")
         except Exception as e:
             error("fail")
@@ -231,10 +256,10 @@ class ZeusPi():
         # --------- microphone check ---------
 
         # --------- pid controller init ---------
-        self.move_pid = PID(kp=self.COMPASS_PID_KP,
-                               ki=self.COMPASS_PID_KI,
-                               kd=self.COMPASS_PID_KD,
-                               out_max=self.COMPASS_PID_OUTPUT_MAX
+        self.move_pid = PID(kp=self.MOVE_PID_KP,
+                               ki=self.MOVE_PID_KI,
+                               kd=self.MOVE_PID_KD,
+                               out_max=self.MOVE_PID_OUTPUT_MAX
                                )
 
         # self.reset_heading()
@@ -356,31 +381,40 @@ class ZeusPi():
         self.move(0, 0, -power)
 
 
-    def move_field_centric(self, angle, move_power, heading=0, drift=False, angFlag=False):
-        current_heading = 0
+    def move_with_pid(self, angle, move_power, heading=0, drift=False, angle_flag=False):
+        '''
+        move with pid to keep the car heading
+
+        :param angle, the direction you want the car to move 
+        :param move_power, moving power
+        :param heading, the car head pointing
+        :param drift, Whether it is a drift mode, default flase 
+                        true, drift mode, the car body will return to square
+                        flase, drift mode, the car body will not return to square
+        :param angle_flag, false, angle of view of field center
+                            true, the angle of view of the car
+        '''
         offset = 0
         rot = 0
-        current_heading = self.read_compass_angle()
 
-        error = current_heading - self.origin_heading - heading
-        if error > 180:
+        # get the current heading
+        _roll, _picth, _yaw = self.read_euler()
+        current_heading =  _yaw
+        error = current_heading - heading - self.origin_heading
+        # convert to -180~180
+        while error > 180:
             error -= 360
-        elif error < -180:
+        while error < -180:
             error += 360
-
-        if error > 1 or error < -1:
+        if error > self.MOVE_ERROR_IGNORE or error < -self.MOVE_ERROR_IGNORE:
             offset += self.move_pid.update(error)
             rot += max(-100, min(100, offset))
 
-
-        if not angFlag and (angle != 0 or drift == True):
+        # filed centric
+        if not angle_flag and (angle != 0 or drift is True):
             angle = angle - current_heading + self.origin_heading
 
-        print(f'error: {error:.4f} offset: {offset} rot: {rot} angle: {angle}')
         self.move(angle, move_power, rot, drift)
-
-        return current_heading, offset
-
 
     def set_move_pid(self, kp=None, ki=None, kd=None, out_max=None):
         if kp is not None:
@@ -391,7 +425,6 @@ class ZeusPi():
             self.move_pid.kd = kd
         if out_max is not None:
             self.move_pid.out_max = out_max
-
 
     # servos
     # ===============================================================================
@@ -441,20 +474,106 @@ class ZeusPi():
         for _ in range(10):
             self.origin_heading = self.read_compass_angle()
 
+
     # imu
-    # ===============================================================================   
+    # ===============================================================================
+    def start_imu_fusion(self, with_mag=False):
+        try:
+            info("9D IMU fusion process init ... ", end='\n', flush=True)
+            self.imu_fusion_process = Process(target=self.imu_fusion_process_func, args=(with_mag,))
+            self.imu_fusion_process.daemon = True
+            self.imu_fusion_process.start()
+
+            # TODO: wait for yaw data to stabilize
+            _count = 0
+            _last_yaw = 0
+            info("wait for data to stabilize ... ", end='', flush=True)
+            while True:
+                _yaw = self.yaw.value
+                _error = _yaw - _last_yaw
+                if abs(_yaw) > 0.001 and abs(_error) < 0.05:
+                    _count += 1
+                else:
+                    _count = 0
+                _last_yaw = _yaw
+                print(f'_count: {_count} _yaw:{_yaw:.6f} {_error:.6f}')
+                
+                if _count > 100:
+                    self.origin_heading = _yaw
+                    break
+                time.sleep(0.01)
+            self.imu_fusion_run = True
+            info("ok")
+        except Exception as e:
+            error("fail")
+            _track = traceback.format_exc()
+            error(_track)
+
+    def stop_imu_fusion(self):
+        if self.imu_fusion_process != None:
+            print(f'imu_fusion_process_before: {self.imu_fusion_process}')
+            self.imu_fusion_process.terminate()
+            print(f'imu_fusion_process_after: {self.imu_fusion_process}')
+            self.imu_fusion_process = None
+        self.imu_fusion_run = False
+
     def read_imu_raw(self):
+        if self.imu_fusion_run:
+            return self.acc_raw
+        else:
+            return self.imu.read_raw()
         return self.imu.read_raw()
 
     def read_imu(self):
         return self.imu.read()
+
+    def read_euler(self):
+        if self.imu_fusion_run:
+            return self.roll.value, self.pitch.value, self.yaw.value
+        else:
+            raise(error("IMU fusion not running"))
+
+    def imu_fusion_process_func(self, with_mag=False):
+        # https://github.com/xioTechnologies/Fusion/blob/main/Python/advanced_example.py
+        offset = imufusion.Offset(self.IMU_FUSION_SAMPLE_RATE)
+        ahrs = imufusion.Ahrs()
+        ahrs.settings = imufusion.Settings(*self.IMU_FUSION_SETTINGS)
+        dt = 1.0 / self.IMU_FUSION_SAMPLE_RATE
+        
+        _st = time.time()
+        while True:
+            self.acc.value, self.gyro.value = self.imu.read()
+            acc_x, acc_y, acc_z = self.acc.value
+            gyro_x, gyro_y, gyro_z = self.gyro.value
+            acc_arry = np.array([acc_x, acc_y, acc_z])
+            gyro_arry = np.array([gyro_x, gyro_y, gyro_z])
+
+            gyro_arry = offset.update(gyro_arry)
+            if with_mag:
+                mag_x, mag_y, mag_z, _angle = self.compass.read()
+                mag_arry = np.array([mag_x, mag_y, mag_z])
+                ahrs.update(gyro_arry, acc_arry, mag_arry, dt)
+            else:
+                ahrs.update_no_magnetometer(gyro_arry, acc_arry, dt)
+
+            self.roll.value, self.pitch.value, self.yaw.value = ahrs.quaternion.to_euler()
+
+            # --- delay --
+            try:
+                time.sleep(dt-(time.time() - _st))
+            except:
+                self._imufusion_timeout_cnt.value += 1
+                error(f'xxxxxxxxxxxxxxxx imu_fusion_timeout xxxxxxxxxxxxxxxx')
+
+            self._imufusion_take.value = time.time() - _st
+            _st = time.time()
 
     # ir_obstacle
     # ===============================================================================
     def read_ir_obstacle(self):
         val_l = self.ir_obstacle_left.value()
         val_r = self.ir_obstacle_right.value()
-        return [val_l, val_r]
+        return (val_l, val_r)
     
     # grayscale module
     # ===============================================================================
