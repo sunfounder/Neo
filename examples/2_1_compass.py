@@ -1,6 +1,7 @@
 from zeus_pi import ZeusPi
 from time import sleep
 
+# TODO: setting the placement, range of compass 
 my_car = ZeusPi()
 
 while True:
