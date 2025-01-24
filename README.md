@@ -2,13 +2,16 @@
 
 ## Installation
 
-### clone the repository
+
+
+
+### clone this repository
 
 ```
 git clone https://github.com/zeuspi/ZeusPi.git --depth=1
 ```
 
-### install the library
+### install this library
 
 ```
 cd ZeusPi

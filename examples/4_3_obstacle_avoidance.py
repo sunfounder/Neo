@@ -1,3 +1,10 @@
+'''
+Use ultrasonic module and IR obstacle detection module to achieve mobile obstacle avoidance.
+Adjust the triggering distance of the IR obstacle detection module to `15cm` is optimal.
+
+Reference Tutorial: https://docs.sunfounder.com/projects/zeus-car/en/latest/get_started/ar_avoid.html
+
+'''
 from zeus_pi import ZeusPi
 from time import sleep
 
@@ -5,7 +12,7 @@ my_car = ZeusPi()
 
 SAFE_DISTANCE = 40 # cm
 FORWARD_POWER = 65
-TURNING_POWER = 50
+TURNING_POWER = 45
 last_status = "forward"
 
 def obstacle_avoidance():
@@ -46,7 +53,7 @@ def obstacle_avoidance():
 try:
     while True:
         obstacle_avoidance()
-        sleep(0.05)
+        sleep(0.01)
 finally:
     my_car.stop()
 
