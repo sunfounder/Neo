@@ -450,7 +450,7 @@ def motors_and_servos_calibration():
 
 # compass_calibration
 # ============================================================================
-compass_running = False
+on_compass_calibrating = False
 compass_data = [0, 0, 0, 0]
 compass_offset_obj = {
     "location": (2, 6),
@@ -480,24 +480,49 @@ def _draw_offset(obj):
         box_width=obj["box_width"])
 
 def calibrate_compass_handler():
-    global compass_offset, compass_offset_obj, compass_running
+    global compass_offset, compass_offset_obj, on_compass_calibrating
     
     _st = time.time()
-    while compass_running:
-        compass_offset = [random.randint(-32767, 32767) for _ in range(6)]
+    while on_compass_calibrating:
+        x_raw, y_raw, z_raw = my_car.read_compass_raw()
+
+        _changed = False
+        if x_raw < x_min:
+            x_min = x_raw
+            _changed = True
+        elif x_raw > x_max:
+            x_max = x_raw
+            _changed = True
+        
+        if y_raw < y_min:
+            y_min = y_raw
+            _changed = True
+        elif y_raw > y_max:
+            y_max = y_raw
+            _changed = True
+
+        if z_raw < z_min:
+            z_min = z_raw
+            _changed = True
+        elif z_raw > z_max:
+            z_max = z_raw
+            _changed = True
+
+        if _changed:
+            st = time.time()
+        elif time.time() - st > 3:
+            my_car.set_compass_offset(x_min, x_max, y_min, y_max, z_min, z_max)
+            on_compass_calibrating = False
+            my_car.stop()
+
         compass_offset_obj['content'] = [
-            f"compass offset: {compass_offset} "
+            f"compass offset: {x_min, x_max, y_min, y_max, z_min, z_max} "
         ]
         _draw_offset(compass_offset_obj)
-        
-        if (time.time() - _st) > 5:
-            compass_running = False
-            break
-
-        time.sleep(0.2)
+        time.sleep(0.01)
 
 def compass_calibration():
-    global compass_offset, compass_running
+    global compass_offset, on_compass_calibrating
     _has_saved = False
 
     # TODO: read from config file
@@ -526,20 +551,20 @@ def compass_calibration():
                         align='left',
                         box_width=CONTENT_WIDTH,
                         )
-            compass_running = True
+            on_compass_calibrating = True
             t = threading.Thread(target=calibrate_compass_handler)
             t.daemon = True
             t.start()
             while True:
                 # 
-                if not compass_running:
+                if not on_compass_calibrating:
                     clear_bottom()
                     draw_bottom('Calibration finished.')
                     break
                 # time.sleep(1)
                 key = term.inkey(timeout=0.1)
                 if key.lower() == 'q':
-                    compass_running = False
+                    on_compass_calibrating = False
                     t.join()
                     clear_bottom()
                     draw_bottom('Cancel.')
@@ -561,7 +586,7 @@ def compass_calibration():
             _box_width = ASK_SAVE['box_width']
             if draw_ask(ASK_SAVE['content'], location=(int((CONTENT_WIDTH-_box_width)/2), 6), align='center', box_width=_box_width):
                 # TODO: save to config file
-
+                my_car.config.write()
                 _has_saved = True
                 refresh_screen()
                 draw_bottom('Saved.')
@@ -572,7 +597,7 @@ def compass_calibration():
 
         # update data
 
-        compass_data = [random.randint(-180, 180) for _ in range(4)]
+        compass_data = my_car.read_compass()
         compass_data_obj['content'] = [
             f"compass data:",
             f"    x: {compass_data[0]:.2f} mGuass   y: {compass_data[1]:.2f} mGuass   z: {compass_data[2]:.2f} mGuass",
@@ -649,6 +674,19 @@ def line_reference_calibrate_handler():
         grayscale_date = [random.randint(0, 4095) for _ in range(3)]
 
 
+def grayscale_module_calibration_under_construction():
+    print(f"{term.home}{THEME_BGROUND_COLOR}{term.clear}")
+    draw_title(TITLE_GRAYSCALE)
+    draw(["grayscale_module_calibration still under construction",
+          "press any key to back",
+            ],
+            color=LINE_REF_CALI_TIPS['color'],
+            location=LINE_REF_CALI_TIPS['location'],
+            align='center',
+            box_width=LINE_REF_CALI_TIPS['box_width'],
+            )
+    # wait for key press
+    key = term.inkey()
 
 def grayscale_module_calibration():
     global grayscale_date, line_reference, cliff_reference, grayscle_extremum
@@ -709,7 +747,7 @@ def grayscale_module_calibration():
                         while True:
                             key = term.inkey(timeout=0.1)
                             if key.lower() == 'q':
-                                # compass_running = False
+
                                 # t.join()
                                 clear_bottom()
                                 draw_bottom('Cancel.')
@@ -772,7 +810,8 @@ def loop():
     elif mode == 1:
         compass_calibration()
     elif mode == 2:
-        grayscale_module_calibration()
+        # grayscale_module_calibration()
+        grayscale_module_calibration_under_construction()
     else:
         pass
 
