@@ -8,6 +8,7 @@ from .compass import Compass
 from .pid import PID
 from .utils import *
 
+import os
 from math import pi, sqrt, sin, cos
 import time
 import ast
@@ -127,6 +128,8 @@ class ZeusPi():
 
         # --------- config_flie ---------
         self.config = Config(path=config,
+                             mode=0o754,
+                             owner=os.getlogin(),
                              description=self.CONFIG_DESCRIPTION
                              )
         self.motors_direction = ast.literal_eval(
