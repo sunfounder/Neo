@@ -25,6 +25,7 @@ sudo bash i2samp.sh
 ```
 
 - vilib (<https://github.com/sunfounder/vilib>)
+
     image visual processing library for Raspberry Pi.
 
 ``` bash
@@ -34,7 +35,7 @@ cd vilib
 sudo python install.py
 ```
 
-- ZeusPi (thise)
+- ZeusPi (this)
 
 ```
 cd ~
