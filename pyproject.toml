@@ -19,10 +19,13 @@ keywords = ["zeus_pi", "Zeus", "sunfounder"]
 dynamic = ["version"]
 
 dependencies = [
+  'blessed',
+  'adafruit-circuitpython-dht',
+  'Adafruit-Blinka',
+  'adafruit-circuitpython-neopixel-spi',
+  'imufusion',
 ]
-#'adafruit-circuitpython-dht',
-#'Adafruit-Blinka',
-#'adafruit-circuitpython-neopixel-spi',
+
 
 [tool.setuptools]
 packages = ["zeus_pi"]
