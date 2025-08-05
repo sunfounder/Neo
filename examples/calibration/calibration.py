@@ -2,14 +2,14 @@
 # https://blessed.readthedocs.io/en/latest/
 from blessed import Terminal
 
-from zeus_pi import ZeusPi
+from zeus_pi import Neo
 import time
 import threading
 import random
 
-# init ZeusPi
+# init Neo
 # ============================================================
-my_car = ZeusPi()
+my_car = Neo()
 
 # -----------------------------------------------------------------------------
 mode = 0

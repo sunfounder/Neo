@@ -1,4 +1,4 @@
-from zeus_pi import ZeusPi
+from zeus_pi import Neo
 import time
 import os
 # ****************************************************************

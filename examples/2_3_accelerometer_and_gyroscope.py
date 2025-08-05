@@ -1,8 +1,8 @@
-from zeus_pi import ZeusPi
+from zeus_pi import Neo
 from time import sleep
 
 # TODO: setting the placement, range of imu 
-my_car = ZeusPi()
+my_car = Neo()
 
 def main():
     while True:

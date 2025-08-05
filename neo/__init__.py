@@ -1,3 +1,3 @@
 from .version import __version__
-from .zeus_pi import ZeusPi
+from .neo import Neo
 from .pid import PID

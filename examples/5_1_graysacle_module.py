@@ -1,7 +1,7 @@
-from zeus_pi import ZeusPi
+from zeus_pi import Neo
 from time import sleep
 
-my_car = ZeusPi()
+my_car = Neo()
 
 # please run examples/calibration.py to set line_reference and cliff_reference
 # my_car.set_line_reference([1000, 1000, 1000])

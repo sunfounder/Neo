@@ -1,4 +1,4 @@
-from zeus_pi import ZeusPi
+from zeus_pi import Neo
 from time import sleep
 
 '''
@@ -6,7 +6,7 @@ Obtaining Attitude Data from a 9D IMU and Using PID Control Algorithm to
 keep the car heading
 '''
 
-my_car = ZeusPi()
+my_car = Neo()
 my_car.start_imu_fusion(with_mag=True)
 
 def main():

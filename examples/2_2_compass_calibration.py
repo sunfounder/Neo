@@ -1,9 +1,9 @@
-from zeus_pi import ZeusPi
+from zeus_pi import Neo
 from blessed import Terminal
 import time
 
 
-my_car = ZeusPi()
+my_car = Neo()
 rotate_speed = 80
 
 magnetic_declination = "3°18'W" # (-3.3°) shenzhen 2024 magnetic_declination (https://www.ngdc.noaa.gov/geomag/calculators/magcalc.shtml)

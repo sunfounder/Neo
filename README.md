@@ -1,4 +1,4 @@
-# Python Library for the ZeusPi
+# Python Library for the Neo
 
 ## Installation
 
@@ -35,12 +35,12 @@ cd vilib
 sudo python install.py
 ```
 
-- ZeusPi (this)
+- Neo (this)
 
 ```
 cd ~
-git clone <https://github.com/sunfounder/ZeusPi.git> --depth=1
-cd ZeusPi
+git clone <https://github.com/sunfounder/Neo.git> --depth=1
+cd Neo
 sudo python setup.py install
 
 ```

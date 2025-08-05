@@ -1,8 +1,8 @@
-from zeus_pi import ZeusPi
+from zeus_pi import Neo
 from time import sleep
 
 # TODO: setting the placement, range of compass 
-my_car = ZeusPi()
+my_car = Neo()
 
 while True:
     x, y, z, angle = my_car.read_compass()

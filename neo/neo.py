@@ -20,12 +20,12 @@ import numpy as np
 from multiprocessing import Process, Value, Array
 
 
-class ZeusPi():
+class Neo():
 
     CONFIG = f'/opt/zeus-pi/zeus-pi.config'
 
     CONFIG_DESCRIPTION = '''
-  This the offset file is used to calibrate the ZeusPi robot.
+  This the offset file is used to calibrate the Neo robot.
 '''
 
     '''

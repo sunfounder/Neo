@@ -1,7 +1,7 @@
-from zeus_pi import ZeusPi
+from zeus_pi import Neo
 from time import sleep
 
-my_car = ZeusPi()
+my_car = Neo()
 move_power = 60
 roate_power = 70
 

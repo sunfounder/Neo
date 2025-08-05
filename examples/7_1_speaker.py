@@ -1,4 +1,4 @@
-from zeus_pi import ZeusPi
+from zeus_pi import Neo
 from time import sleep
 
 # More to see: robot_hat/music.py
@@ -12,7 +12,7 @@ os.chdir(current_path) # change working directory
 MUSIC_PATH = '../music/spry.mp3'
 SOUND_PATH = '../sounds/car-double-horn.wav'
 
-my_car = ZeusPi()
+my_car = Neo()
 
 try:
     my_car.speaker.music_play(MUSIC_PATH, volume=100) # background music

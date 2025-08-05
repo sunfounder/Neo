@@ -1,4 +1,4 @@
-from zeus_pi import ZeusPi
+from zeus_pi import Neo
 from time import sleep
 
 '''
@@ -9,7 +9,7 @@ Without magnetometer fusion, the yaw angle will accumulate errors, about 0.01 de
 Using magnetometer fusion will be disturbed by the magnetic field environment
 '''
 
-my_car = ZeusPi()
+my_car = Neo()
 my_car.start_imu_fusion(with_mag=True)
 
 def main():

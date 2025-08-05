@@ -1,9 +1,9 @@
-from zeus_pi import ZeusPi
+from zeus_pi import Neo
 from vilib import Vilib
 import readchar
 import time
 
-my_car = ZeusPi()
+my_car = Neo()
 
 
 manual = '''
