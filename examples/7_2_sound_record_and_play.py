@@ -9,8 +9,11 @@ import os
 
 REC_PATH = '/tmp/'
 
+_time = 5 # seconds
 
-os.system(f'rec -c 1 -r 44100 {REC_PATH}rec_test..wav'
-        f" && play {REC_PATH}rec_test..wav"
-          )
+print(f'Recording for {_time} seconds')
+os.system(f'rec -c 1 -r 44100 {REC_PATH}rec_test..wav trim 0 {_time}')
+
+print('Playing the recorded sound')
+os.system(f'play {REC_PATH}rec_test..wav')
 
