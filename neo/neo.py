@@ -220,6 +220,8 @@ class Neo():
             self.gyro_raw = Array('f', 3)
             self.imu = SH3001(acc_range=self.ACC_RANGE, gryo_range=self.GROYTY_RANGE, db=config)
             debug("ok")
+            debug(f"acc_offset: {self.imu.acc_offset}")
+            debug(f"gyro_offset: {self.imu.gyro_offset}")
         except Exception as e:
             error("fail")
             error(e)
@@ -233,6 +235,8 @@ class Neo():
                                    declination=self.magnetic_declination
                                    )
             debug("ok")
+            debug(f"compass offset: {self.compass.x_offset} {self.compass.y_offset} {self.compass.z_offset}"
+                  f" scale: {self.compass.x_scale} {self.compass.y_scale} {self.compass.z_scale}")
         except Exception as e:
             error("fail")
             _track = traceback.format_exc()
@@ -248,15 +252,26 @@ class Neo():
             error(e)
 
         # --------- speaker init ---------
-        # try:
-        #     debug("speaker init ... ", end='', flush=True)
-        #     self.speaker = Music()
-        #     debug("ok")
-        # except Exception as e:
-        #     error("fail")
-        #     error(e)
+        try:
+            debug("speaker init ... ", end='', flush=True)
+            self.speaker = Music()
+            self.enable_speaker()
+            debug("ok")
+        except Exception as e:
+            error("fail")
+            error(e)
 
         # --------- microphone check ---------
+        try:
+            debug("microphone check ... ", end='', flush=True)
+            result = utils.run_command("arecord -l |grep sndrpigooglevoi")
+            if result != '':
+                debug("ok")
+            else:
+                debug("fail")
+        except Exception as e:
+            error("fail")
+            error(e)
 
         # --------- pid controller init ---------
         self.move_pid = PID(kp=self.MOVE_PID_KP,
@@ -566,7 +581,7 @@ class Neo():
                 time.sleep(dt-(time.time() - _st))
             except:
                 self._imufusion_timeout_cnt.value += 1
-                error(f'xxxxxxxxxxxxxxxx imu_fusion_timeout xxxxxxxxxxxxxxxx')
+                error(f'imu_fusion_timeout')
 
             self._imufusion_take.value = time.time() - _st
             _st = time.time()
@@ -618,3 +633,12 @@ class Neo():
             self.cliff_reference = list.copy(reference)
         else:
             raise TypeError("reference parameter must be 1*3 list.")
+
+    # speaker
+    # ===============================================================================
+    def enable_speaker(self):
+        utils.enable_speaker()
+
+    def disable_speaker(self):
+        utils.disable_speaker()
+
