@@ -3,7 +3,8 @@ from vilib import Vilib
 import time
 
 def main():
-    Vilib.camera_start(vflip=True, hflip=False, size=(1280, 720))
+    # For the assembled Raspberry Pi camera, using the 4:3 native resolution will result in a faster frame rate.
+    Vilib.camera_start(vflip=True, hflip=True, size=(1280, 960))
     Vilib.show_fps()
     Vilib.display(local=True, web=True) 
     '''
