@@ -3,7 +3,7 @@ import sys
 # color:
 # https://gist.github.com/rene-d/9e584a7dd2935d0f461904b9f2950007
 # 1;30:gray 31:red, 32:green, 33:yellow, 34:blue, 35:purple, 36:dark green, 37:white
-GRAY = '1;30'
+GRAY = '38;5;240'
 RED = '0;31'
 GREEN = '0;32'
 YELLOW = '0;33'
