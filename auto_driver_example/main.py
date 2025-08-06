@@ -15,7 +15,7 @@ from globals import ym_per_pix, xm_per_pix
 from neo import Neo
 
 my_car = Neo()
-pan_angle = 2.0
+pan_angle = 0
 tilt_angle = -30.0
 pan_angle_threshold = int(pan_angle*5 )
 tilt_angle_threshold = int(tilt_angle*5)
@@ -126,16 +126,9 @@ def birdeye(img):
 
     return img, M, Minv
 
-# zoom_out
-# ==============================================================
-def zoom_out(img, zoom_out=2):
-    w = img.shape[1]//zoom_out
-    h = img.shape[0]//zoom_out
-    return cv2.resize(img, (w, h))
-
 # binarize
 # ==============================================================
-def binarize(img, zoom_out=1):
+def binarize(img):
     # gray
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     # cv2.imshow('Gray', gray)
@@ -144,7 +137,7 @@ def binarize(img, zoom_out=1):
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
 
     # adaptive theshold
-    _adaptiveThreshold_boxsize = int(adaptiveThreshold_boxsize/zoom_out)
+    _adaptiveThreshold_boxsize = int(adaptiveThreshold_boxsize)
     if _adaptiveThreshold_boxsize % 2 == 0:
         _adaptiveThreshold_boxsize += 1
     _adaptiveThreshold_C = adaptiveThreshold_C
@@ -159,33 +152,27 @@ def binarize(img, zoom_out=1):
     # cv2.imshow('Adaptive Threshold', adaptive_theshold)
 
     _line_lt_start = (0, 0)
-    _line_lt_end = (int(343/ZOOM_OUT), int(720/ZOOM_OUT))
-    _line_rt_start = (int(960/ZOOM_OUT), 0)
-    _line_rt_end = (int(600/ZOOM_OUT), int(720/ZOOM_OUT))
-    _line_thickness = int(80/ZOOM_OUT)
+    _line_lt_end = (343, 720)
+    _line_rt_start = (960, 0)
+    _line_rt_end = (600, 720)
+    _line_thickness = 80
     cv2.line(adaptive_theshold, _line_lt_start, _line_lt_end, 255, _line_thickness)
     cv2.line(adaptive_theshold, _line_rt_start, _line_rt_end, 255, _line_thickness)
     # cv2.imshow('adaptive_theshold2', adaptive_theshold)
 
-    # 反向 reverse
+    # reverse
     adaptive_theshold = cv2.bitwise_not(adaptive_theshold)
     # cv2.imshow('adaptive_theshold3', adaptive_theshold)
 
     # open
-    kernel = np.ones((int(15/ZOOM_OUT), int(15/ZOOM_OUT)), np.uint8)
+    kernel = np.ones(15, 15, np.uint8)
     opening = cv2.morphologyEx(adaptive_theshold, cv2.MORPH_OPEN, kernel, iterations=1)
     # cv2.imshow('Opening', opening)
 
-    # close
-    # kernel = np.ones((10, 10), np.uint8)
-    # closing = cv2.morphologyEx(adaptive_theshold, cv2.MORPH_CLOSE, kernel)
-    # cv2.imshow('Closing', closing)
-
-    # return adaptive_theshold
     return opening
 
 
-def compute_offset_from_center(line_lt, line_rt, frame_width, zoom_out):
+def compute_offset_from_center(line_lt, line_rt, frame_width):
     """
     Compute offset from center of the inferred lane.
     The offset from the lane center can be computed under the hypothesis that the camera is fixed
@@ -215,10 +202,10 @@ def compute_offset_from_center(line_lt, line_rt, frame_width, zoom_out):
     else:
         return -255, None # No lane detected
 
-    offset_pix = lane_midpoint*zoom_out - frame_width / 2 # 正值偏右，负值偏左
+    offset_pix = lane_midpoint - frame_width / 2 # 正值偏右，负值偏左
     offset_cm = xm_per_pix * offset_pix
 
-    return offset_cm, int(lane_midpoint)*zoom_out
+    return offset_cm, int(lane_midpoint)
 
 def prepare_out_blend_frame(blend_on_road, img_binary, img_birdeye, img_fit, line_lt, line_rt, offset_cm):
     """
@@ -507,7 +494,7 @@ def move_hander():
 
             steer = pid.update(_offset)
 
-            my_car.move(0, POWER, -steer, drift=False)
+            # my_car.move(0, POWER, -steer, drift=False)
 
         elif _status == 'stop':
             steer = 0
@@ -543,7 +530,6 @@ detections = None
 class_names = None
 move_thread = None
 mode = 'img'
-ZOOM_OUT = 1
 
 final_output_window = 'Final Output'
 cv2.namedWindow(final_output_window, cv2.WINDOW_NORMAL) 
@@ -555,6 +541,7 @@ def main():
     global picam2, hailo, detections, class_names, move_thread, mode
     global steer
 
+    # -------- init --------
     if len(sys.argv) > 1:
         mode = 'img'
         img_path = sys.argv[1]
@@ -586,7 +573,7 @@ def main():
     fps = 0
     results = None
 
-    # 发起第一帧的推理
+    # ------ Initiate the object detection inference for the first frame ---
     if mode == 'live':
         # lores = picam2.capture_array('lores')
 
@@ -596,10 +583,7 @@ def main():
         inference_queue.put(lores)
 
     while True:
-        # print('')
-        tt = time.time()
-        _st = time.time()
-        # image input
+        # ------ image input ---------
         if mode == 'img':
             img_path = sys.argv[1]
             img_ori = cv2.imread(img_path)
@@ -608,52 +592,23 @@ def main():
             # lores = picam2.capture_array('lores')
             # lores = cv2.resize(img_ori, (model_w, model_h))
 
-
         # cv2.imshow('img_ori', img_ori)
 
-        # print('capture time', time.time() - tt)
-        tt = time.time()
-
-        # fps_count += 1
-        # if time.time() - st >= 1:
-        #     fps =  int(fps_count / (time.time() - st))
-        #     fps_count = 0
-        #     st = time.time()
-        #     # print(f'fps: {fps}') 
-
-        # cv2.putText(img_ori, f'fps: {fps}', (camera_w - 120, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
-        # cv2.imshow('blend_output', img_ori)
-
-        # if cv2.waitKey(1) == ord('q'):
-        #     break
-
-        # continue
-
-        # undistort the image
+        # ------ undistort the image ------
         # ret, mtx, dist, rvecs, tvecs = read_camera_calibration('cali/calibration.pckl')
         # img = undistort(img_ori, mtx, dist)
 
-        # birdeye
+        # ------ birdeye ------
         img_birdeye_ori,  M, Minv  = birdeye(img_ori)
         # cv2.imshow('birdeye_ori', img_birdeye_ori)
 
-        # print('birdeye time', time.time() - tt)
-        tt = time.time()
 
-        # cv2.imwrite(f'birdey_ori_scene_{time.time()}.png', img_birdeye_ori)
-        # return
-
-        # resize
-        img_birdeye_resize = zoom_out(img_birdeye_ori, ZOOM_OUT)
-
-        # binarize
-        img_birdeye_binary = binarize(img_birdeye_resize, zoom_out=ZOOM_OUT)
+        # ------ binarize ------
+        img_birdeye_binary = binarize(img_birdeye_ori)
         # cv2.imshow('birdeye_binary', img_birdeye_binary)
 
-        # print('binarize time', time.time() - tt)
-        tt = time.time()
 
-        # # fit and find the lane
+        # ------ find and fit the lane ------
         try:
             # if line_lt.detected and line_rt.detected:
             #     line_lt, line_rt, img_fit = get_fits_by_previous_fits(img_birdeye_binary, line_lt, line_rt, verbose=False)
@@ -662,51 +617,38 @@ def main():
    
             line_lt, line_rt, img_fit = get_fits_by_sliding_windows(img_birdeye_binary, line_lt, line_rt, n_windows=10, verbose=True)
             # cv2.imshow('img_fit', img_fit)
-  
-
-            # print('fit time', time.time() - tt)
-            tt = time.time()
 
             # # compute curvature and offset
             curvature_cm = np.mean([line_lt.curvature_meter, line_rt.curvature_meter])
-            curvature_cm = curvature_cm * ZOOM_OUT
-            
-            offset_cm, lane_midpoint = compute_offset_from_center(line_lt, line_rt, frame_width=img_ori.shape[1], zoom_out=ZOOM_OUT)
+            offset_cm, lane_midpoint = compute_offset_from_center(line_lt, line_rt, frame_width=img_ori.shape[1])
 
-            # print('offset time', time.time() - tt)
-            tt = time.time()
 
-            # # draw lane lines on the original image
-            blend_on_road = draw_back_onto_the_road(img_ori, ZOOM_OUT, Minv, line_lt, line_rt, keep_state=True)
+
+            # ------ draw lane lines on the original image ------
+            blend_on_road = draw_back_onto_the_road(img_ori, Minv, line_lt, line_rt, keep_state=True)
             # cv2.imshow('blend_on_road', blend_on_road)
 
-            # print('draw road time', time.time() - tt)
-            tt = time.time()
-
         except:
-            # img_fit = img_birdeye_binary*3
             img_fit = np.dstack((img_birdeye_binary, img_birdeye_binary, img_birdeye_binary)) * 255
             blend_on_road = img_ori
             offset_cm = -255
             curvature_cm = -255
     
-        # xxxxxxxxxxxxxxxxxx 111111111
+        # ------ object detection (block) ------
         # results = hailo.run(lores)
         # detections, is_safety = extract_detections(results, camera_w, camera_h, class_names, score_threshold)
 
         # img_hailo = draw_objects(blend_on_road, detections)
         # cv2.imshow('img_hailo', img_hailo)
 
-        # xxxxxxxxxxxxxxxxxx 22222222
-        # 1. 获取上一帧的推理结果（非阻塞，若未完成则等待）
+        # ------ object detection (async) ------
         if not result_queue.empty():
             results = result_queue.get()
             result_queue.task_done()
         else:
-            # 若结果未就绪，可暂用前一帧结果或跳过
+            # use the previous frame's results
             pass
 
-        # 2. 发起当前帧的推理请求（非阻塞，放入队列后立即执行后续步骤）
         if not inference_queue.full():
             # lores = picam2.capture_array('lores')
             lores = cv2.resize(img_ori, (model_w, model_h))
@@ -715,9 +657,7 @@ def main():
         detections, is_safety = extract_detections(results, camera_w, camera_h, class_names, score_threshold)
         img_hailo = draw_objects(blend_on_road, detections)
 
-        # print('hailo time', time.time() - tt)
-        tt = time.time()
-
+        # ------ move ------
         with thread_lock:
             if is_safety:
                 move_status = 'run'
@@ -726,14 +666,11 @@ def main():
             curvature = curvature_cm
             offset = offset_cm
 
+        # ------ blend ------
         blend_output = prepare_out_blend_frame_2(img_hailo, img_birdeye_ori, img_birdeye_binary, img_fit, curvature_cm, offset_cm, steer)
         # cv2.imshow('blend_output', blend_output)  
-        # 
 
-        # print('blend time', time.time() - tt)
-        tt = time.time()
-
-
+        # ------ count fps ------
         fps_count += 1
         if time.time() - st >= 1:
             fps =  int(fps_count / (time.time() - st))
@@ -746,8 +683,6 @@ def main():
 
         if cv2.waitKey(1) == ord('q'):
             break
-
-        # print('total time', time.time() - _st)
 
     cv2.destroyAllWindows()
 

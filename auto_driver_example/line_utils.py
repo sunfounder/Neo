@@ -462,7 +462,7 @@ def get_fits_by_previous_fits(birdeye_binary, line_lt, line_rt, verbose=False):
 
     return line_lt, line_rt, result
 
-def draw_back_onto_the_road(img_undistorted, zoom_out, Minv, line_lt, line_rt, keep_state):
+def draw_back_onto_the_road(img_undistorted, Minv, line_lt, line_rt, keep_state):
     """
     Draw both the drivable lane area and the detected lane-lines onto the original (undistorted) frame.
     :param img_undistorted: original undistorted color frame
