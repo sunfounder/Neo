@@ -52,7 +52,7 @@ sudo python3 setup.py install
 
 ## Hailo
   Usage of the Hailo module
-  <a href="./hailo" >hailo usage</a>
+  </br><a href="./hailo" >hailo usage</a>
 
 ## Gpt example
   A project that uses ChatGPT API to implement real-time conversations and provide action feedback
