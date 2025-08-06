@@ -12,9 +12,9 @@ from line_utils import Line, \
     draw_back_onto_the_road
 from globals import ym_per_pix, xm_per_pix
 
-from zeus_pi import ZeusPi
+from neo import Neo
 
-my_car = ZeusPi()
+my_car = Neo()
 pan_angle = 2.0
 tilt_angle = -30.0
 pan_angle_threshold = int(pan_angle*5 )
