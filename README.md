@@ -10,9 +10,9 @@
 
 ```bash
 cd ~
-git clone https://github.com/sunfounder/robot-hat.git --depth=1
+git clone -b v2.0 https://github.com/sunfounder/robot-hat.git --depth=1
 cd robot-hat
-sudo python setup.py install
+sudo python3 setup.py install
 ```
 
 - i2samp.sh
@@ -32,15 +32,15 @@ sudo bash i2samp.sh
 cd ~
 git clone https://github.com/sunfounder/vilib.git --depth=1
 cd vilib
-sudo python install.py
+sudo python3 install.py
 ```
 
 - Neo (this)
 
 ```
 cd ~
-git clone <https://github.com/sunfounder/Neo.git> --depth=1
+git clone https://github.com/sunfounder/Neo.git --depth=1
 cd Neo
-sudo python setup.py install
+sudo python3 setup.py install
 
 ```

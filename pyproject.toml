@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "zeus_pi"
+name = "neo"
 authors = [
   {name="SunFounder", email="service@sunfounder.com" },
 ]
@@ -15,7 +15,7 @@ classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: POSIX :: Linux",
 ]
-keywords = ["zeus_pi", "Zeus", "sunfounder"]
+keywords = ["neo", "sunfounder"]
 dynamic = ["version"]
 
 dependencies = [
@@ -28,19 +28,19 @@ dependencies = [
 
 
 [tool.setuptools]
-packages = ["zeus_pi"]
+packages = ["neo"]
 
 [project.scripts]
 
 [project.urls]
-"Homepage" = "https://github.com/sunfounder/zeus_pi"
-"Bug Tracker" = "https://github.com/sunfounder/zeus_pi/issues"
+"Homepage" = "https://github.com/sunfounder/neo"
+"Bug Tracker" = "https://github.com/sunfounder/neo/issues"
 
 #[tool.setuptools.packages.find]
-#include = ["zeus_pi"]
+#include = ["neo"]
 #exclude = ["setup.py", "docs", 'tests*', 'examples', 'workspace']
 
 [tool.setuptools.dynamic]
-version = {attr = "zeus_pi.version.__version__"}
+version = {attr = "neo.version.__version__"}
 
 
