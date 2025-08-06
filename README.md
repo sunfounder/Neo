@@ -48,6 +48,8 @@ sudo python3 setup.py install
 ---
 # Basic examples
 
+  <a href="./example" >basic examples</a>hailo usage</a>
+
 # Hailo
   <a href="./hailo" >hailo usage</a>
 
