@@ -48,6 +48,8 @@ sudo python3 setup.py install
 ---
 # Basic examples
 
+# Hailo
+  <a href="./hailo" >hailo usage</a>
 
 # Gpt example
 
