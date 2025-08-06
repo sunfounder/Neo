@@ -5,6 +5,9 @@ import time
 
 my_car = Neo()
 
+my_car.set_cam_pan(0)
+my_car.set_cam_tilt(0)
+
 
 manual = '''
 Press keys on keyboard to control the camera Servos!
@@ -19,7 +22,7 @@ SERVO_MOVE_STEP = 3
 def main():
     global pan_angle, tilt_angle
 
-    Vilib.camera_start(vflip=True, hflip=False, size=(1280, 720))
+    Vilib.camera_start(vflip=True, hflip=True, size=(1280, 720))
     Vilib.show_fps()
     Vilib.display(local=True, web=True) 
 
