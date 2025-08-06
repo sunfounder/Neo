@@ -249,7 +249,7 @@ class Compass(QMC6310):
         # corrected_y = (sensor_y - offset_y) * y_scale
         # corrected_z = (sensor_z - offset_z) * z_scale
 
-        print(f"compass offset: {self.x_offset} {self.y_offset} {self.z_offset} scale: {self.x_scale} {self.y_scale} {self.z_scale}")
+        # print(f"compass offset: {self.x_offset} {self.y_offset} {self.z_offset} scale: {self.x_scale} {self.y_scale} {self.z_scale}")
 
     def set_magnetic_declination(self, angle):
         if isinstance(angle, str):

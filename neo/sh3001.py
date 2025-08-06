@@ -629,8 +629,8 @@ class SH3001(I2C):
         self.gyro_offset[1] = round(0 - _gy/_time, 0)
         self.gyro_offset[2] = round(0 - _gz/_time, 0)
 
-        print("acc_offset: ", self.acc_offset)
-        print("gyro_offset: ", self.gyro_offset)
+        # print("acc_offset: ", self.acc_offset)
+        # print("gyro_offset: ", self.gyro_offset)
 
     def read(self):
         data = self.read_raw()
