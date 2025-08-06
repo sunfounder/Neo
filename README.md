@@ -46,23 +46,23 @@ sudo python3 setup.py install
 
 ```
 ---
-# Basic examples
-  Simple usage examples of all Neo modules and sensors.</br>
-  <a href="./example" >basic examples</a>
+## Basic examples
+  Simple usage examples of all Neo modules and sensors.
+  </br><a href="./example" >basic examples</a>
 
-# Hailo
+## Hailo
   Usage of the Hailo module
   <a href="./hailo" >hailo usage</a>
 
-# Gpt example
+## Gpt example
   A project that uses ChatGPT API to implement real-time conversations and provide action feedback
-  <a href="./gpt_example" >gpt_example</a>
+  </br><a href="./gpt_example" >gpt_example</a>
 
-# Auto-drive example
+## Auto-drive example
   A project that simulates auto driving by detecting lane lines through camera vision
-  <a href="./auto_driver_example" >auto_driver_example</a>
+  </br><a href="./auto_driver_example" >auto_driver_example</a>
 
 
 ---
-# Data sheet
+## Data sheet
 https://github.com/sunfounder/Neo/tree/data_sheet
