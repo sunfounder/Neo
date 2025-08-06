@@ -11,6 +11,11 @@ import random
 # ============================================================
 my_car = Neo()
 
+my_car.set_cam_pan(-10)
+my_car.set_cam_tilt(-10)
+time.sleep(.5)
+my_car.set_cam_pan(0)
+my_car.set_cam_tilt(0)
 # -----------------------------------------------------------------------------
 mode = 0
 
