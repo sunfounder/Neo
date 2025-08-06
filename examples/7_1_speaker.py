@@ -1,4 +1,4 @@
-from zeus_pi import Neo
+from neo import Neo
 from time import sleep
 
 # More to see: robot_hat/music.py

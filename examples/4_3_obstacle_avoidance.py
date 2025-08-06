@@ -5,7 +5,7 @@ Adjust the triggering distance of the IR obstacle detection module to `15cm` is 
 Reference Tutorial: https://docs.sunfounder.com/projects/zeus-car/en/latest/get_started/ar_avoid.html
 
 '''
-from zeus_pi import Neo
+from neo import Neo
 from time import sleep
 
 my_car = Neo()

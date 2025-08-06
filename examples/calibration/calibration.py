@@ -2,7 +2,7 @@
 # https://blessed.readthedocs.io/en/latest/
 from blessed import Terminal
 
-from zeus_pi import Neo
+from neo import Neo
 import time
 import threading
 import random

@@ -1,4 +1,4 @@
-from zeus_pi import Neo
+from neo import Neo
 from time import sleep
 
 # TODO: setting the placement, range of imu 

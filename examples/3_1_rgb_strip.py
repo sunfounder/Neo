@@ -1,5 +1,5 @@
-from zeus_pi import Neo
-from zeus_pi.rgb_strip import hsl_to_rgb
+from neo import Neo
+from neo.rgb_strip import hsl_to_rgb
 from time import sleep
 
 my_car = Neo()
