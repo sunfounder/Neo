@@ -48,9 +48,10 @@ VOLUME_DB = 3
 # https://platform.openai.com/docs/guides/text-to-speech/supported-languages#voice-options
 TTS_VOICE = 'ash'
 
-# voice instructions
+# voice instructions for vibe
 # https://www.openai.fm/
-VOICE_INSTRUCTIONS = ""
+VOICE_INSTRUCTIONS = """Identity: A robot\n\nAffect: Monotone, mechanical, and neutral, reflecting the robotic nature of the customer service agent.\n\nTone: Efficient, direct, and formal, with a focus on delivering information clearly and without emotion.\n\nEmotion: Neutral and impersonal, with no emotional inflection, as the robot voice is focused purely on functionality.\n\nPauses: Brief and purposeful, allowing for processing and separating key pieces of information, such as confirming the return and refund details.\n\nPronunciation: Clear, precise, and consistent, with each word spoken distinctly to ensure the customer can easily follow the automated process."""
+
 
 SOUND_EFFECT_ACTIONS = ["honking", "start engine"]
 
@@ -339,7 +340,7 @@ def main():
                 st = time.time()
                 _time = time.strftime("%y-%m-%d_%H-%M-%S", time.localtime())
                 _tts_f = f"./tts/{_time}_raw.wav"
-                _tts_status = openai_helper.text_to_speech(answer, _tts_f, TTS_VOICE, response_format='wav') # alloy, echo, fable, onyx, nova, and shimmer
+                _tts_status = openai_helper.text_to_speech(answer, _tts_f, TTS_VOICE, response_format='wav', instructions=VOICE_INSTRUCTIONS) # alloy, echo, fable, onyx, nova, and shimmer
                 if _tts_status:
                     tts_file = f"./tts/{_time}_{VOLUME_DB}dB.wav"
                     _tts_status = sox_volume(_tts_f, tts_file, VOLUME_DB)
