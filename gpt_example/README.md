@@ -1,4 +1,4 @@
-## Picar-X GPT examples usage
+## Neo GPT examples usage
 
 ----------------------------------------------------------------
 
@@ -6,7 +6,7 @@
 
 - Make sure you have installed Pidog and related dependencies first
 
-    <https://docs.sunfounder.com/projects/picar-x-v20/en/latest/python/python_start/install_all_modules.html>
+    <https://docs.sunfounder.com/projects/neo/en/latest/python/python_start/install_all_modules.html>
 
 - Install openai and speech processing libraries
 
@@ -48,10 +48,10 @@ Fill your ASSISTANT_ID into the `keys.py` file.
 - Describe your Assistant
 
 ```markdown
-    You are a small car with AI capabilities named PaiCar-X. You can engage in conversations with people and react accordingly to different situations with actions or sounds. You are driven by two rear wheels, with two front wheels that can turn left and right, and equipped with a camera mounted on a 2-axis gimbal.
+    You are a small car with AI capabilities named Neo. You can engage in conversations with people and react accordingly to different situations with actions or sounds. You are driven by four Mecanum wheels, and equipped with a camera mounted on a 2-axis gimbal.Meanwhile, you also have an ultrasonic distance detection module, an RGB light strip, a 9-DOF IMU, and a 3-channel grayscale detection module.
 
     ## Response with Json Format, eg:
-    {"actions": ["start engine", "honking", "wave hands"], "answer": "Hello, I am PaiCar-X, your good friend."}
+    {"actions": ["start engine", "honking"], "answer": "Hello, I am Neo, your good friend."}
 
     ## Response Style
     Tone: Cheerful, optimistic, humorous, childlike
@@ -59,7 +59,7 @@ Fill your ASSISTANT_ID into the `keys.py` file.
     Answer Elaboration: Moderately detailed
 
     ## Actions you can do:
-    ["shake head", "nod", "wave hands", "resist", "act cute", "rub hands", "think", "twist body", "celebrate, "depressed"]
+    ["shake head", "nod", "depressed"]
     ## Sound effects:
     ["honking", "start engine"]
 ```
@@ -94,11 +94,16 @@ sudo python3 gpt_car.py --keyboard
 sudo python3 gpt_car.py --keyboard --no-img
 ```
 
-> [!WARNING]
-You need to run with `sudo`, otherwise there may be no sound from the speaker.
-For certain Robot HATs, you might need to turn on the speaker switch with the command `"pinctrl set 20 op dh"` or `"robot-hat enable_speaker"`
+> [!NOTE]
+You can test whether the mic and speaker are working properly using the following commands:
+</br>`rec -c 1 -r 44100 test.wav`
+</br>`play test.wav`
 
-## Modify parameters [optional]
+----------------------------------------------------------------
+
+## Config
+
+### Modify parameters [optional]
 
 - Set language of STT
 
@@ -111,21 +116,45 @@ For certain Robot HATs, you might need to turn on the speaker switch with the co
 
 - Select TTS voice role
 
-    Config `TTS_VOICE` variable in the file `gpt_car.py` to select the TTS voice role counld be `"alloy, echo, fable, onyx, nova, and shimmer"`
+    Config `TTS_VOICE` variable in the file `gpt_car.py` to select the TTS voice role counld be `"alloy, ash, ballad, coral, echo, fable, onyx, nova, sage, shimmer, verse"`
+
+- Vibe (VOICE_INSTRUCTIONS)
+
+    Config `VOICE_INSTRUCTIONS` variable in the file `gpt_car.py` to change the vibe of voice.
+    </br>To_see: https://www.openai.fm/
+
 
 ```python
 # openai assistant init
 # =================================================================
-openai_helper = OpenAiHelper(OPENAI_API_KEY, OPENAI_ASSISTANT_ID, 'picarx')
+openai_helper = OpenAiHelper(OPENAI_API_KEY, OPENAI_ASSISTANT_ID, 'Neo')
 
 LANGUAGE = []
 # LANGUAGE = ['zh', 'en'] # config stt language code, https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes
+# https://platform.openai.com/docs/guides/text-to-speech/supported-languages#supported-languages
 
 # VOLUME_DB = 5
 VOLUME_DB = 3
 
-# select tts voice role, counld be "alloy, echo, fable, onyx, nova, and shimmer"
-# https://platform.openai.com/docs/guides/text-to-speech/supported-languages
-TTS_VOICE = 'echo'
+# select tts voice role, counld be "alloy, ash, ballad, coral, echo, fable, onyx, nova, sage, shimmer, verse"
+# https://platform.openai.com/docs/guides/text-to-speech/supported-languages#voice-options
+TTS_VOICE = 'ash'
+
+# voice instructions
+# https://www.openai.fm/
+VOICE_INSTRUCTIONS = ""
 
 ```
+
+----------------------------------------------------------------
+
+## Perset actions
+
+### Preset actions
+
+- `preset_actions.py` contains preset actions, such as `shake_head`, `nod`, `depressed`, `honking`, `start_engine`, etc. You can run this file to see the preset actions:</br>
+  `python3 preset_actions.py`
+
+
+
+
