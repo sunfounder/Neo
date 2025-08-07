@@ -66,9 +66,6 @@ def sox_volume(input_file, output_file, volume):
         print(f"sox_volume err: {e}")
         return False
 
-
-speak_first = False
-
 def speak_block(music, name, volume=100):
     """
     speak, play audio with block
@@ -78,11 +75,7 @@ def speak_block(music, name, volume=100):
     :param volume: volume, 0-100
     :type volume: int
     """
-    global speak_first
     is_run_with_root = (os.geteuid() == 0)
-    if not is_run_with_root and not speak_first:
-        speak_first = True
-        warn("Play sound needs to be run with sudo.")
     _status, _ = run_command('sudo killall pulseaudio') # Solve the problem that there is no sound when running in the vnc environment
     
     if os.path.isfile(name):

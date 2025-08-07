@@ -3,7 +3,7 @@ from keys import OPENAI_API_KEY, OPENAI_ASSISTANT_ID
 from utils import *
 import time
 
-openai_helper = OpenAiHelper(OPENAI_API_KEY, OPENAI_ASSISTANT_ID, 'picarx')
+openai_helper = OpenAiHelper(OPENAI_API_KEY, OPENAI_ASSISTANT_ID, 'Neo')
 
 VOLUME_DB = 3
 TTS_VOICE = 'echo'
