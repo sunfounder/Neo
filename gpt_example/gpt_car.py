@@ -408,4 +408,5 @@ if __name__ == "__main__":
         if with_img:
             Vilib.camera_close()
         my_car.reset()
+        my_car.rgbs.stop()
 
