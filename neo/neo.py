@@ -255,7 +255,6 @@ class Neo():
         try:
             debug("speaker init ... ", end='', flush=True)
             self.speaker = Music()
-            self.enable_speaker()
             debug("ok")
         except Exception as e:
             error("fail")
