@@ -202,7 +202,7 @@ def action_handler():
             if last_action_status != 'think':
                 last_action_status = 'think'
                 # think(my_car)
-                keep_think(my_car)
+                # keep_think(my_car)
         elif _state == 'actions':
             last_action_status = 'actions'
             with action_lock:
@@ -234,21 +234,25 @@ def main():
 
     my_car.reset()
     my_car.set_cam_tilt(DEFAULT_HEAD_TILT)
+    my_car.rgbs.start()
+    my_car.rgbs.set_headlights_style('breath', color='blue', bps=.5)
+
 
     speak_thread.start()
     action_thread.start()
 
     while True:
+        my_car.set_cam_pan(DEFAULT_HEAD_PAN)
+        my_car.set_cam_tilt(DEFAULT_HEAD_TILT)
+    
         if input_mode == 'voice':
-            my_car.set_cam_pan(DEFAULT_HEAD_PAN)
-            my_car.set_cam_tilt(DEFAULT_HEAD_TILT)
-
             # listen
             # ----------------------------------------------------------------
             gray_print("listening ...")
 
             with action_lock:
                 action_status = 'standby'
+            my_car.rgbs.set_headlights_style('listen', color='cyan', bps=1)
 
             _stderr_back = redirect_error_2_null() # ignore error print to ignore ALSA errors
             # If the chunk_size is set too small (default_size=1024), it may cause the program to freeze
@@ -260,6 +264,8 @@ def main():
             # stt
             # ----------------------------------------------------------------
             gray_print('stt ...')
+            my_car.rgbs.set_headlights_style('breath', color='yellow', bps=.5)
+
             st = time.time()
             _result = openai_helper.stt(audio, language=LANGUAGE)
             gray_print(f"stt takes: {time.time() - st:.3f} s")
@@ -280,6 +286,8 @@ def main():
                 print() # new line
                 continue
 
+            my_car.rgbs.set_headlights_style('breath', color='yellow', bps=.5)
+            
         else:
             raise ValueError("Invalid input mode")
 
@@ -345,6 +353,8 @@ def main():
                     tts_file = f"./tts/{_time}_{VOLUME_DB}dB.wav"
                     _tts_status = sox_volume(_tts_f, tts_file, VOLUME_DB)
                 gray_print(f'tts takes: {time.time() - st:.3f} s')
+            else:
+                my_car.rgbs.set_headlights_style('breath', color='blue', bps=.5)
 
             # ---- actions ----
             with action_lock:
@@ -362,6 +372,8 @@ def main():
             if _tts_status:
                 with speech_lock:
                     speech_loaded = True
+                my_car.rgbs.set_headlights_style('speak', color='pink', bps=.5)
+                
 
             # ---- wait speak done ----
             if _tts_status:
