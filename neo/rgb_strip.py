@@ -1,7 +1,8 @@
 import time
 import threading
 
-from math import cos, pi
+import numpy as np
+from math import sin, cos, pi, sqrt
 
 # https://github.com/adafruit/Adafruit_CircuitPython_NeoPixel_SPI
 # https://github.com/adafruit/Adafruit_CircuitPython_Pixelbuf/blob/main/adafruit_pixelbuf.py
@@ -99,17 +100,17 @@ def color_2_tuple(color):
 
 # Variables define
 # =================================================================
-RGB_STYLES = [
-    'solid', 'breathing', 'flow', 'flow_reverse', 'rainbow', 'rainbow_reverse', 'hue_cycle'
+STYLES = [
+    'solid', 'breathing', 'flow', 'flow_reverse', 'rainbow', 'rainbow_reverse', 'hue_cycle',
+
 ]
-
-
 class WS2812_SPI(NeoPixel_SPI):
 
     def __init__(self, led_num):
 
         spi = board.SPI()
         PIXEL_ORDER = neopixel.GRB
+        self.led_num = led_num
 
         super().__init__(spi,
                         led_num,
@@ -145,24 +146,42 @@ class WS2812_SPI(NeoPixel_SPI):
 #
 #
 
-class RGB_Strip(WS2812_SPI):
+class NeoRGBStrip(WS2812_SPI):
 
-    lights_order = [
-        0, 1, 2, 3, 4, 5, 6, 7, 
-        8, 9, 10, 11, 12, 13, 14, 15,
-    ]
+    MIN_DELAY = 0.05
+    DEFAULT_BRIGHTNESS = 0.5
 
-    def __init__(self, led_num):
+    def __init__(self):
 
-        self.led_num = led_num
         self.running = False
         self._is_ready = False
-        self.style = 'breath'
-        self.color = (0, 255, 255)
-        self.speed = 80
+
+        self.headlights = {
+            'leds': [0, 1, 2, 3, 4, 5, 6, 7],
+            'number': 8,
+            'style': None,
+            'color': (0, 255, 255),
+            'bps': 1,
+            'brightness': 1,
+            'frames': [[[0, 0, 0]] * 8],
+            'max_frames': 1,
+            'frame_index': 0
+        }
+        self.tail_lights = {
+            'leds': [8, 9, 10, 11, 12, 13, 14, 15],
+            'number': 8,
+            'style': None,
+            'color': (0, 255, 255),
+            'bps': 1,
+            'brightness': 1,
+            'frames': [[[0, 0, 0]] * 8],
+            'max_frames': 1,
+            'frame_index': 0
+        }
 
         try:
-            super().__init__(self.led_num)
+            super().__init__(led_num=self.headlights['number'] + self.tail_lights['number'])
+            self.set_brightness(self.DEFAULT_BRIGHTNESS)
             self._is_ready = True
         except Exception as e:
             self._is_ready = False
@@ -176,16 +195,21 @@ class RGB_Strip(WS2812_SPI):
             print("rgb strip not ready")
             return
         while self.running:
-            try:
-                style_func = getattr(self, self.style)
-                style_func()
-            except KeyError as e:
-                print(f'Style error: {e}')
-            except Exception as e:
-                print(f'WS2812 error: {type(e)} {e}')
-            self.counter += 1
-            if self.counter >= self.counter_max:
-                self.counter = 0
+            if self.headlights['frame_index'] >= self.headlights['max_frames']:
+                self.headlights['frame_index'] = 0
+            if self.tail_lights['frame_index'] >= self.tail_lights['max_frames']:
+                self.tail_lights['frame_index'] = 0
+
+            headlights_frame = self.headlights['frames'][self.headlights['frame_index']]
+            tail_lights_frame = self.tail_lights['frames'][self.tail_lights['frame_index']]
+            mix_frames = headlights_frame + tail_lights_frame
+
+            self.headlights['frame_index'] += 1
+            self.tail_lights['frame_index'] += 1
+
+            self.fill_pattern(mix_frames)
+            self.show()
+            time.sleep(self.MIN_DELAY)
 
     def start(self):
         self.running = True
@@ -200,70 +224,231 @@ class RGB_Strip(WS2812_SPI):
         self.show()
         print("WS2812 Stop")
 
-    def set_style(self, style, color, speed, log=False):
-        # style
-        if not isinstance(style, str) or style not in RGB_STYLES:
-            if log:
-                print(f"Invalid style: {style}")
-            return
-        self.style = style
-        # color
-        self.color = color_2_tuple(color)
-        # speed
-        if not isinstance(speed, int):
-            if log:
-                print(f"Invalid speed: {speed}")
-            return
-        self.speed = speed
+    def close_headlights(self):
+        self.headlights['style'] = None
+        self.headlights['frames'] = [[[0, 0, 0]] * self.headlights['number']]
+        self.headlights['max_frames'] = 1
+        self.headlights['frame_index'] = 0
+        self.headlights['max_frames'] = 1
+        self.headlights['frame_index'] = 0
 
-    # styles
-    # =================================================================
-    def solid(self):
-        self.fill(self.color)
-        self.show()
-        time.sleep(1)
+    def close_tail_lights(self):
+        self.tail_lights['style'] = None
+        self.tail_lights['frames'] = [[[0, 0, 0]] * self.tail_lights['number']]
+        self.tail_lights['max_frames'] = 1
+        self.tail_lights['frame_index'] = 0
 
-    def breathing(self):
-        self.counter_max = 200
-        delay = map_value(self.speed, 0, 100, 0.1, 0.001)
+    def set_headlights_style(self, style, color, bps=1, brightness=1):
+        self.headlights['style'] = style
+        self.headlights['color'] = color_2_tuple(color)
+        self.headlights['bps'] = bps
+        self.headlights['brightness'] = brightness
+         
+        fuc = getattr(self, style)
+        self.headlights['frames'] = fuc(self.headlights['leds'], 
+                                        self.headlights['color'], 
+                                        self.headlights['bps'],
+                                        self.headlights['brightness'])
+        self.headlights['max_frames'] = len(self.headlights['frames'])
+        self.headlights['frame_index'] = 0
 
-        if self.counter < 100:
-            i = self.counter
-            r, g, b = [int(x * i * 0.01) for x in self.color]
-        else:
-            i = 200 - self.counter
-            r, g, b = [int(x * i * 0.01) for x in self.color]
-        self.fill((r, g, b))
-        self.show()
-        time.sleep(delay)
 
-    def flow(self, order = None):
-        self.counter_max = self.led_num
-        delay = map_value(self.speed, 0, 100, 0.5, 0.1)
+    def set_tail_lights_style(self, style, color, bps=1, brightness=1):
+        self.tail_lights['style'] = style
+        self.tail_lights['color'] = color_2_tuple(color)
+        self.tail_lights['bps'] = bps
+        self.tail_lights['brightness'] = brightness
+
+        fuc = getattr(self, style)
+        self.tail_lights['frames'] = fuc(self.tail_lights['leds'],
+                                        self.tail_lights['color'],
+                                        self.tail_lights['bps'],
+                                        self.tail_lights['brightness'])
+        self.tail_lights['max_frames'] = len(self.tail_lights['frames'])
+        self.tail_lights['frame_index'] = 0
         
-        if order is None:
-            order = self.lights_order
+    # styles frames calculations
+    # =================================================================
+    def cos_func(self, peak, a, x, offset=0, vm=0):
+        """
+        cos fuction
 
-        self.fill(0)
-        index = self.lights_order[self.counter]
-        self[index] = self.color
-        self.show()
-        time.sleep(delay)
+        :param peak:
+        :param a: multiple
+        :param x: xpos
+        :return: result, float  or int
+        """
+        return (peak/2.0) * cos(a*x + offset) + peak/2 + vm
+    
+    def normal_distribution_calculate(self, u, sig, A, x, offset):
+        """
+        Normal distribution calculate
 
-    def flow_reverse(self):
-        order = self.lights_order[::-1]
-        self.flow(order)
+        :param u: mathematical expectation, average value, affects the x position of the highest point 
+        :type u: float or int
+        :param sig: standard deviation, affects the magnitude and range of the central area
+        :type sig: float or int
+        :param A: amplitude ratio
+        :type  A: float or int
+        :param x: x pos
+        :type x: int
+        :param offset: amplitude offset
+        :type offset: float or int
+        :return: Normal distribution y(x)
+        :rtype: float or int
+        """
+        y = A*np.exp(-(x-u)**2/(2*sig**2))/(sqrt(2*pi)*sig) + offset
+        return y
+    
+    def solid(self, leds, color, bps, brightness=1):
+        color = [i*brightness for i in color]
+        frames = []
+        max_frames = 1
+        for frame_index in range(max_frames):
+            _frame = []
+            for led_index in range(len(leds)):
+                _frame.append(color)
+            frames.append(_frame)
+
+        return frames
+    
+    def breath(self, leds, color, bps, brightness=1):
+        color = [i*brightness for i in color]
+
+        frames = []
+        max_frames = int(1/bps/self.MIN_DELAY)
+
+        u = 4 # Control the brightest point position
+        sig = 2 # Control the degree of dispersion
+        A = 5 # Control the amplitude of the wave
+        multiple = float(2*pi/max_frames) # multiple, period = max_frames
+
+        for frame_index in range(max_frames):
+            _frame = []
+            offset = -self.cos_func(1, multiple, frame_index)
+            for led_index in range(len(leds)):
+                _brightness = self.normal_distribution_calculate(u, sig, A, led_index, offset)
+                _frame.append(list([max(0, int(c * _brightness)) for c in color]))
+            frames.append(_frame)
+
+        return frames
+
+    def speak(self, leds, color, bps, brightness=1):
+        color = [i*brightness for i in color]
+        frames = []
+        max_frames = int(1/bps/self.MIN_DELAY)
+
+        # sig = 1
+        # A = 2.5
+        sig = 0.8
+        A = 2
+        peak = (len(leds)-1)/2
+        multiple = float(2*pi/(max_frames)) # multiple, period = max_frames
+
+        for frame_index in range(max_frames):
+            _frame = []
+            u_offset = self.cos_func(peak, multiple, frame_index)
+            for led_index in range(len(leds)):
+                if led_index <= peak:
+                    u = u_offset 
+                else:
+                    u = 2*peak - u_offset
+                _brightness = self.normal_distribution_calculate(u, sig, A, led_index, 0)
+                _frame.append(list([max(0, int(c * _brightness)) for c in color]))
+            frames.append(_frame)
+
+        return frames
+
+    def listen(self, leds, color, bps, brightness=1):
+        color = [i*brightness for i in color]
+        frames = []
+        max_frames = int(1/bps/self.MIN_DELAY)
+
+        sig = 1
+        A = 2.5   
+        peak = len(leds)-1
+        multiple = float(2*pi/(max_frames)) # T, multiple, period = max_frames
+        offset = pi/2
+
+        for frame_index in range(max_frames):
+            _frame = []
+            u = self.cos_func(peak, multiple, frame_index, offset)
+            for led_index in range(len(leds)):
+                _brightness = self.normal_distribution_calculate(u, sig, A, led_index, 0)
+                _frame.append(list([max(0, int(c * _brightness)) for c in color]))
+            frames.append(_frame)
+
+        return frames
+    
+    def flow(self, leds, color, bps, brightness=1):
+        color = [i*brightness for i in color]
+        frames = []
+        max_frames = int(1/bps/self.MIN_DELAY)
+
+        sig = 1
+        A = 2.5   
+        peak = len(leds) + 6
+        vm = -3
+        multiple = float(pi/(max_frames)) # T/2, multiple, period = max_frames
+        offset = -pi
+        
+        for frame_index in range(max_frames):
+            _frame = []
+            u = self.cos_func(peak, multiple, frame_index, offset, vm)
+            for led_index in range(len(leds)):
+                _brightness = self.normal_distribution_calculate(u, sig, A, led_index, 0)
+                _frame.append(list([max(0, int(c * _brightness)) for c in color]))
+            frames.append(_frame)
+
+        return frames
+
+
+    def flow_reverse(self, leds, color, bps, brightness=1):
+        color = [i*brightness for i in color]
+        frames = []
+        max_frames = int(1/bps/self.MIN_DELAY)
+
+        sig = 1
+        A = 2.5   
+        peak = len(leds) + 6
+        vm = -3
+        multiple = float(pi/(max_frames)) # T/2, multiple, period = max_frames
+        offset = 0
+        
+        for frame_index in range(max_frames):
+            _frame = []
+            u = self.cos_func(peak, multiple, frame_index, offset, vm)
+            for led_index in range(len(leds)):
+                _brightness = self.normal_distribution_calculate(u, sig, A, led_index, 0)
+                _frame.append(list([max(0, int(c * _brightness)) for c in color]))
+            frames.append(_frame)
+
+        return frames
 
 if __name__ == '__main__':
     try:
         led_num = 16
-        rgbs = RGB_Strip(led_num)
+        rgbs = NeoRGBStrip()
 
         # --- pre style ---
-        rgbs.set_style('flow', (0, 0, 255), 80)
         rgbs.start()
-        print(f'starting rgb strip, style: {rgbs.style}, brightness:{rgbs.brightness}')
+
+        rgbs.set_tail_lights_style('solid', color='red', bps=1)
+        # rgbs.set_headlights_style('breath', color='yellow', bps=.5)
+        # rgbs.set_headlights_style('speak', color='pink', bps=1)
+        # rgbs.set_headlights_style('listen', color='cyan', bps=1)
+        # rgbs.set_headlights_style('flow', color='blue', bps=1)
+        # rgbs.set_headlights_style('flow_reverse', color='red', bps=1)
+
+        rgbs.set_headlights_style('breath', color='yellow', bps=1)
         time.sleep(3)
+
+        rgbs.set_headlights_style('flow', color='blue', bps=1)
+        time.sleep(3)
+
+        rgbs.set_headlights_style('flow_reverse', color='red', bps=1)
+        time.sleep(3)
+
         rgbs.stop()
 
         # --- set rgb items ---

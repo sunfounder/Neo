@@ -2,7 +2,7 @@
 from robot_hat import Pin, ADC, PWM, Servo, Motor, Music
 from robot_hat import Grayscale_Module, Ultrasonic, utils
 from robot_hat import Config
-from .rgb_strip import RGB_Strip
+from .rgb_strip import NeoRGBStrip
 from .sh3001 import SH3001
 from .compass import Compass
 from .pid import PID
@@ -245,7 +245,7 @@ class Neo():
         # --------- ws2812 rgb_LEDs init ---------
         try:
             debug("ws2812 rgb_LEDs init ... ", end='', flush=True)
-            self.rgbs = RGB_Strip(self.RGB_LEDS_NUM)
+            self.rgbs = NeoRGBStrip()
             debug("ok")
         except Exception as e:
             error("fail")
@@ -464,8 +464,8 @@ class Neo():
     # ----
     def reset(self):
         self.stop_motors()
-        # self.set_cam_pan(0)
-        # self.set_cam_tilt(0)
+        self.set_cam_pan(0)
+        self.set_cam_tilt(0)
 
     # compass
     # ===============================================================================

@@ -6,10 +6,21 @@ my_car = Neo()
 
 try:
     # --- use preset style ---
-    my_car.rgbs.set_style('flow', (0, 0, 255), 80)
     my_car.rgbs.start() # start preset style loop
-    print(f'starting rgb strip, style: {my_car.rgbs.style}, brightness:{my_car.rgbs.brightness}')
+
+    # set tail_lights
+    my_car.rgbs.set_tail_lights_style('listen', color=(0, 0, 255), bps=1)
     sleep(3)
+    my_car.rgbs.close_tail_lights() # close tail_lights
+
+    # set head_lights
+    my_car.rgbs.set_headlights_style('breath', color='yellow', bps=1)
+    sleep(3)
+    my_car.rgbs.set_headlights_style('flow', color='blue', bps=1)
+    sleep(3)
+    my_car.rgbs.set_headlights_style('flow_reverse', color='red', bps=1)
+    sleep(3)
+    
     my_car.rgbs.stop() # stop preset style loop
 
     # --- set rgb items ---
