@@ -2,6 +2,10 @@ from neo import Neo
 from time import sleep
 from vilib import Vilib
 
+# More To see: 
+# https://github.com/sunfounder/vilib/tree/main/examples,
+# https://github.com/sunfounder/vilib/tree/main/vilib
+
 my_car = Neo()
 
 my_car.set_cam_pan(0)

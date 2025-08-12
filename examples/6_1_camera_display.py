@@ -1,6 +1,9 @@
-# To See: https://github.com/sunfounder/vilib
 from vilib import Vilib
 import time
+
+# More To see: 
+# https://github.com/sunfounder/vilib/tree/main/examples,
+# https://github.com/sunfounder/vilib/tree/main/vilib
 
 def main():
     # For the assembled Raspberry Pi camera, using the 4:3 native resolution will result in a faster frame rate.
