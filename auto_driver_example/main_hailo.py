@@ -14,8 +14,6 @@ from line_utils import Line, \
     draw_back_onto_the_road
 from globals import ym_per_pix, xm_per_pix
 
-import mediapipe as mp
-
 from neo import Neo
 
 my_car = Neo()
@@ -34,10 +32,9 @@ my_car.set_cam_tilt(tilt_angle)
 # https://github.com/ndrplz/self-driving-car
 # https://markhedleyjones.com/projects/calibration-checkerboard-collection
 
-model = "../vision_models/efficientdet_lite0.tflite"
-labels = "../vision_models/object_detection_labelmap.txt"
-SCORE_THRESHOLD = 0.5
-MAX_RESULTS = 15
+model = "/usr/share/hailo-models/yolov8s_h8l.hef"
+labels = "coco.txt"
+score_threshold = 0.5
 
 camera_w = 960
 camera_h = 720
@@ -143,7 +140,7 @@ def binarize(img):
 
     # adaptive theshold
     _adaptiveThreshold_boxsize = int(adaptiveThreshold_boxsize)
-    # adaptive theshold must be odd
+     # adaptive theshold must be odd
     if _adaptiveThreshold_boxsize % 2 == 0:
         _adaptiveThreshold_boxsize += 1
     _adaptiveThreshold_C = adaptiveThreshold_C
@@ -362,7 +359,7 @@ def prepare_out_blend_frame_2(blend_on_road, img_binary, img_birdeye, img_fit, c
 
     return blend_on_road
 
-def camera_init(main_size=(camera_w, camera_h), lores_size=None, hflip=False, vflip=False):
+def camera_init(main_size=(camera_w, camera_h), lores_size=(640, 640), hflip=False, vflip=False):
     import os
     # set libcamera2 log level
     os.environ['LIBCAMERA_LOG_LEVELS'] = '*:ERROR'
@@ -373,8 +370,7 @@ def camera_init(main_size=(camera_w, camera_h), lores_size=None, hflip=False, vf
 
     preview_config = picam2.preview_configuration
     preview_config.main = {'size': main_size, 'format': 'XRGB8888'}
-    if lores_size is not None:
-        preview_config.lores = {'size': lores_size, 'format': 'RGB888'}
+    preview_config.lores = {'size': lores_size, 'format': 'RGB888'}
     preview_config.format = 'RGB888'  # 'XRGB8888', 'XBGR8888', 'RGB888', 'BGR888', 'YUV420'
     preview_config.transform = libcamera.Transform(
                                     hflip=hflip,
@@ -389,38 +385,12 @@ def camera_init(main_size=(camera_w, camera_h), lores_size=None, hflip=False, vf
 
     return picam2
 
+def hialo_init():
+    from picamera2.devices import Hailo
 
-detection_result_list = []
-obj_det_fps = 0
-obj_det_frame_count = 0
-obj_det_fps_start_time = time.time()
+    hailo = Hailo(model)
 
-def mediapipe_objiect_detector_init():
-    from mediapipe.tasks import python
-    from mediapipe.tasks.python import vision
-
-    def save_result(result: vision.ObjectDetectorResult, output_image: mp.Image=None, timestamp_ms: int=None):
-        global detection_result_list
-        global obj_det_fps, obj_det_frame_count, obj_det_fps_start_time
-
-        if obj_det_frame_count % 10 == 0:
-            obj_det_fps = int(10 / (time.time() - obj_det_fps_start_time))
-            obj_det_fps_start_time = time.time()
-
-        detection_result_list.append(result)
-        obj_det_frame_count += 1
-
-    options = vision.ObjectDetectorOptions(
-        base_options=python.BaseOptions(model_asset_path=model),
-        running_mode=vision.RunningMode.LIVE_STREAM,
-        max_results=MAX_RESULTS,
-        score_threshold=SCORE_THRESHOLD,
-        result_callback=save_result,
-    )
-
-    detector = vision.ObjectDetector.create_from_options(options)
-
-    return detector
+    return hailo
 
 
 def read_camera_calibration(file_path):
@@ -432,61 +402,50 @@ def read_camera_calibration(file_path):
     ret, mtx, dist, rvecs, tvecs = calibration
     return ret, mtx, dist, rvecs, tvecs
 
-colors = [(0,255,255),(255,0,0),(0,255,64),(255,255,0),
-        (255,128,64),(128,128,255),(255,128,255),(255,128,128)]
-MARGIN = 10
-ROW_SIZE = 15
-FONT_SIZE = 0.8
-FONT_THICKNESS = 1
-
-def extract_draw_objects(frame, detections):
-
+def extract_detections(hailo_output, w, h, class_names, threshold=0.5):
+    """Extract detections from the HailoRT-postprocess output."""
+    results = []
     is_safety = True
-    if detections is None:
-        return frame, is_safety
+    if hailo_output is None:
+        return results
+    for class_id, detections in enumerate(hailo_output):
+        for detection in detections:
+            score = detection[4]
+            if score >= threshold:
+                y0, x0, y1, x1 = detection[:4]
+                bbox = (int(x0 * w), int(y0 * h), int(x1 * w), int(y1 * h))
+                results.append([class_names[class_id], bbox, score])
+                
+                if class_names[class_id] == 'stop sign':
+                    is_safety = False
+                    # area = (x1-x0)*w*(y1-y0)*h
+                    # if area > 4500:
+                    #     is_safety = False
+                if class_names[class_id] == 'person':
+                    is_safety = False
+                    # area = (x1-x0)*w*(y1-y0)*h
+                    # if area > 8000:
+                    #     is_safety = False
 
-    i = 0
-    for detection in detections:
-        # Draw bounding_box
-        bbox = detection.bounding_box
-        start_point = bbox.origin_x, bbox.origin_y
-        end_point = bbox.origin_x + bbox.width, bbox.origin_y + bbox.height
-        color = colors[i % len(colors)]
-        i += 1
-        cv2.rectangle(frame, start_point, end_point, color, 3)
+                if class_names[class_id] == 'traffic light':
+                    is_safety = False
+                    # area = (x1-x0)*w*(y1-y0)*h
+                    # if area > 4000:
+                    #     is_safety = False
 
-        # Draw label and score
-        label = detection.categories[0].category_name
-        score = detection.categories[0].score
-        label_text = f'{label} {int(score * 100)}%'
-        cv2.putText(frame,
-                    label_text,
-                    (MARGIN + bbox.origin_x, MARGIN + ROW_SIZE + bbox.origin_y),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    FONT_SIZE,
-                    color,
-                    FONT_THICKNESS,
-                    cv2.LINE_AA)
-        
-        if label == 'stop sign':
-            is_safety = False
-            # area = bbox.width * bbox.height
-            # if area > 4500:
-            #     is_safety = False
 
-        if label == 'person':
-            is_safety = False
-            # area = bbox.width * bbox.height
-            # if area > 8000:
-            #     is_safety = False
+    return results, is_safety
 
-        if label == 'traffic light':
-            is_safety = False
-            # area = bbox.width * bbox.height
-            # if area > 4000:
-            #     is_safety = False
+def draw_objects(frame, detections):
+    if detections:
+        for class_name, bbox, score in detections:
+            x0, y0, x1, y1 = bbox
+            label = f"{class_name} %{int(score * 100)}"
+            cv2.rectangle(frame, (x0, y0), (x1, y1), (0, 255, 0, 0), 2)
+            cv2.putText(frame, label, (x0 + 5, y0 + 15),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0, 0), 1, cv2.LINE_AA)
 
-    return frame, is_safety
+    return frame
 
 
 move_status = 'stop' # run
@@ -500,6 +459,7 @@ KD = 13.5
 OUT_MAX_ANGLE = 35
 POWER = 45
 OFFSET_R = 1.68
+
 
 thread_lock = threading.Lock()
 
@@ -537,7 +497,7 @@ def move_hander():
 
             steer = pid.update(_offset)
 
-            my_car.move(0, POWER, -steer, drift=False)
+            # my_car.move(0, POWER, -steer, drift=False)
 
         elif _status == 'stop':
             steer = 0
@@ -548,12 +508,31 @@ def move_hander():
     time.sleep(0.1)
 
 
+inference_queue = queue.Queue(maxsize=1)  # 限制队列大小，避免内存堆积
+result_queue = queue.Queue(maxsize=1)
+
+
+def async_inference_worker():
+    """单线程消费队列，按顺序处理推理"""
+    while True:
+        try:
+            frame = inference_queue.get(timeout=0.1)  # 取出带序号的帧
+            results = hailo.run(frame)
+            result_queue.put(results)  # 结果带序号返回
+            inference_queue.task_done()
+        except queue.Empty:
+            continue
+        except Exception as e:
+            print(f"Error during inference: {e}")
+            # break
+            continue
+
 picam2 = None
 hailo = None
 detections = None
 class_names = None
 move_thread = None
-mode = 'live'
+mode = 'img'
 
 final_output_window = 'Final Output'
 cv2.namedWindow(final_output_window, cv2.WINDOW_NORMAL) 
@@ -572,11 +551,14 @@ def main():
     else:
         mode = 'live'
 
-        obj_detector = mediapipe_objiect_detector_init()
+        hailo = hialo_init()
+        inference_thread = threading.Thread(target=async_inference_worker, daemon=True)
+        inference_thread.start()
 
+        model_h, model_w, _ = hailo.get_input_shape()
         picam2 = camera_init(
                         main_size=(camera_w, camera_h),
-                        lores_size=None,
+                        lores_size=(model_w, model_h),
                         hflip=True,
                         vflip=True
                         )
@@ -593,6 +575,15 @@ def main():
     fps_count = 0
     fps = 0
     results = None
+
+    # ------ Initiate the object detection inference for the first frame ---
+    if mode == 'live':
+        # lores = picam2.capture_array('lores')
+
+        img_ori = picam2.capture_array('main')
+        lores = cv2.resize(img_ori, (model_w, model_h))
+
+        inference_queue.put(lores)
 
     while True:
         # ------ image input ---------
@@ -612,11 +603,9 @@ def main():
         img_birdeye_ori,  M, Minv  = birdeye(img_ori)
         # cv2.imshow('birdeye_ori', img_birdeye_ori)
 
-
         # ------ binarize ------
         img_birdeye_binary = binarize(img_birdeye_ori)
         # cv2.imshow('birdeye_binary', img_birdeye_binary)
-
 
         # ------ find and fit the lane ------
         try:
@@ -632,8 +621,6 @@ def main():
             curvature_cm = np.mean([line_lt.curvature_meter, line_rt.curvature_meter])
             offset_cm, lane_midpoint = compute_offset_from_center(line_lt, line_rt, frame_width=img_ori.shape[1])
 
-
-
             # ------ draw lane lines on the original image ------
             blend_on_road = draw_back_onto_the_road(img_ori, Minv, line_lt, line_rt, keep_state=True)
             # cv2.imshow('blend_on_road', blend_on_road)
@@ -643,22 +630,29 @@ def main():
             blend_on_road = img_ori
             offset_cm = -255
             curvature_cm = -255
+    
+        # ------ object detection (block) ------
+        # results = hailo.run(lores)
+        # detections, is_safety = extract_detections(results, camera_w, camera_h, class_names, score_threshold)
+
+        # img_hailo = draw_objects(blend_on_road, detections)
+        # cv2.imshow('img_hailo', img_hailo)
 
         # ------ object detection (async) ------
-        rgb_image = cv2.cvtColor(img_ori, cv2.COLOR_BGR2RGB)
-        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_image)
-
-        # if Object Detector task is busy, the new input frame will be ignored
-        obj_detector.detect_async(mp_image, time.time_ns() // 1_000_000)
-
-        if detection_result_list:
-            results = detection_result_list[0].detections
-            detection_result_list.clear()
+        if not result_queue.empty():
+            results = result_queue.get()
+            result_queue.task_done()
         else:
             # use the previous frame's results
             pass
 
-        img_hailo, is_safety = extract_draw_objects(blend_on_road, results)
+        if not inference_queue.full():
+            # lores = picam2.capture_array('lores')
+            lores = cv2.resize(img_ori, (model_w, model_h))
+            inference_queue.put(lores)
+
+        detections, is_safety = extract_detections(results, camera_w, camera_h, class_names, score_threshold)
+        img_hailo = draw_objects(blend_on_road, detections)
 
         # ------ move ------
         with thread_lock:
@@ -681,18 +675,7 @@ def main():
             st = time.time()
             # print(f'fps: {fps}') 
 
-
         cv2.putText(blend_output, f'fps: {fps}', (camera_w - 120, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
-        cv2.putText(blend_output, f'obj detector fps: {obj_det_fps}', (camera_w - 320, 180), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
-
-        # ------ show ------
-        try:
-            prop = cv2.getWindowProperty(final_output_window, cv2.WND_PROP_VISIBLE)
-            if prop < 1:
-                break
-        except:
-            pass
-
         cv2.imshow(final_output_window, blend_output)
 
         if cv2.waitKey(1) == ord('q'):

@@ -25,3 +25,16 @@ The steps of this project are the following:
 - Warp the detected lane boundaries back onto the original image
 - Perform object detection on the original image
 - Control the car based on lane curvature, center offset, and object detection results.
+
+---
+run the example with mediapipe objecet detection
+
+```bash
+python3 main.py
+```
+</br>
+run the example with hailo object detection
+
+```bash
+python3 main_hailo.py
+```
