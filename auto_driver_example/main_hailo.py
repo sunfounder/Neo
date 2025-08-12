@@ -676,6 +676,15 @@ def main():
             # print(f'fps: {fps}') 
 
         cv2.putText(blend_output, f'fps: {fps}', (camera_w - 120, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
+        
+        # ------ show ------
+        try:
+            prop = cv2.getWindowProperty(final_output_window, cv2.WND_PROP_VISIBLE)
+            if prop < 1:
+                break
+        except:
+            pass
+
         cv2.imshow(final_output_window, blend_output)
 
         if cv2.waitKey(1) == ord('q'):
