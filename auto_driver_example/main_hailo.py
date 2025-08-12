@@ -100,24 +100,24 @@ cv2.moveWindow(threshold_window, 20, 100)
 # ==============================================================
 def birdeye(img):
     src = np.float32([
-        [-1000, 550],   # 左下
-        [2000, 550],   # 右下
-        [camera_w, 246],   # 右上
-        [0, 246]    # 左上
+        [-1000, 550],       # left bottom
+        [2000, 550],        # right bottom
+        [camera_w, 246],    # right top
+        [0, 246]            # left top
     ])
 
     dst = np.float32([
-        [0, camera_h-50],   # 左下
-        [camera_w, camera_h-50],   # 右下
-        [camera_w, 0],     # 右上
-        [0, 0]      # 左上
+        [0, camera_h-50],          # left bottom
+        [camera_w, camera_h-50],   # right bottom
+        [camera_w, 0],             # right top
+        [0, 0]                     # left top
     ])
 
-    # 计算透视变换矩阵M
+    # Calculate the perspective transformation matrix M
     M = cv2.getPerspectiveTransform(src, dst)
     Minv = cv2.getPerspectiveTransform(dst, src)
 
-    # 应用变换生成鸟瞰图
+    # Generate a bird's-eye view
     img = cv2.warpPerspective(
         img, 
         M, 
@@ -174,7 +174,8 @@ def binarize(img):
 
     return opening
 
-
+# compute_offset_from_center
+# ==============================================================
 def compute_offset_from_center(line_lt, line_rt, frame_width):
     """
     Compute offset from center of the inferred lane.
@@ -205,88 +206,38 @@ def compute_offset_from_center(line_lt, line_rt, frame_width):
     else:
         return -255, None # No lane detected
 
-    offset_pix = lane_midpoint - frame_width / 2 # 正值偏右，负值偏左
+    offset_pix = lane_midpoint - frame_width / 2 # Positive - right, Negative - left
     offset_cm = xm_per_pix * offset_pix
 
     return offset_cm, int(lane_midpoint)
 
-def prepare_out_blend_frame(blend_on_road, img_binary, img_birdeye, img_fit, line_lt, line_rt, offset_cm):
-    """
-    Prepare the final pretty pretty output blend, given all intermediate pipeline images
-
-    :param blend_on_road: color image of lane blend onto the road
-    :param img_binary: thresholded binary image
-    :param img_birdeye: bird's eye view of the thresholded binary image
-    :param img_fit: bird's eye view with detected lane-lines highlighted
-    :param line_lt: detected left lane-line
-    :param line_rt: detected right lane-line
-    :param offset_cm: offset from the center of the lane
-    :return: pretty blend with all images and stuff stitched
-    """
-    h, w = blend_on_road.shape[:2]
-
-    thumb_ratio = 0.2
-    thumb_h, thumb_w = int(thumb_ratio * h), int(thumb_ratio * w)
-
-    off_x, off_y = 20, 15
-
-    # add a gray rectangle to highlight the upper area
-    mask = blend_on_road.copy()
-    mask = cv2.rectangle(mask, pt1=(0, 0), pt2=(w, thumb_h+2*off_y), color=(0, 0, 0), thickness=cv2.FILLED)
-    blend_on_road = cv2.addWeighted(src1=mask, alpha=0.2, src2=blend_on_road, beta=0.8, gamma=0)
-
-    # add thumbnail of binary image
-    thumb_binary = cv2.resize(img_binary, dsize=(thumb_w, thumb_h))
-    thumb_binary = np.dstack([thumb_binary, thumb_binary, thumb_binary])
-    blend_on_road[off_y:thumb_h+off_y, off_x:off_x+thumb_w, :] = thumb_binary
-
-    # add thumbnail of bird's eye view
-    thumb_birdeye = cv2.resize(img_birdeye, dsize=(thumb_w, thumb_h))
-    thumb_birdeye = np.dstack([thumb_birdeye, thumb_birdeye, thumb_birdeye])
-    blend_on_road[off_y:thumb_h+off_y, 2*off_x+thumb_w:2*(off_x+thumb_w), :] = thumb_birdeye
-
-    # add thumbnail of bird's eye view (lane-line highlighted)
-    thumb_img_fit = cv2.resize(img_fit, 
-                               dsize=(thumb_w, thumb_h), 
-                               interpolation=cv2.INTER_AREA # 区域插值，能更好的保留细节， 但速度比双线性插值慢
-                               )
-    blend_on_road[off_y:thumb_h+off_y, 3*off_x+2*thumb_w:3*(off_x+thumb_w), :] = thumb_img_fit
-
-    # add text (curvature and offset info) on the upper right of the blend
-    mean_curvature_meter = np.mean([line_lt.curvature_meter, line_rt.curvature_meter])
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    cv2.putText(blend_on_road, 'radius: {:.02f}cm'.format(mean_curvature_meter), (w-250, 60), font, 0.8, (255, 255, 255), 2, cv2.LINE_AA)
-    cv2.putText(blend_on_road, 'Offset: {:.02f}cm'.format(offset_cm), (w-250, 130), font, 0.8, (255, 255, 255), 2, cv2.LINE_AA)
-
-    return blend_on_road
-
+# blend images to output the final image
+# ==============================================================
 def create_gray_blur_image(width=500, height=500, gray_value=127, ksize=(15, 15), sigma_x=0):
     """
-    创建灰度图像并添加高斯模糊
+    Create a grayscale image and add Gaussian blur
     
-    参数:
-        width: 图像宽度（像素）
-        height: 图像高度（像素）
-        gray_value: 灰度值（0-255，0为纯黑，255为纯白）
-        ksize: 高斯核大小，必须是正的奇数元组（如(3,3)、(15,15)），数值越大模糊越明显
-        sigma_x: X方向的高斯标准差，0则根据核大小自动计算
-    返回:
-        处理后的图像
+    Parameters:
+        width: Image width in pixels
+        height: Image height in pixels
+        gray_value: Grayscale value (0-255, where 0 is pure black and 255 is pure white)
+        ksize: Gaussian kernel size, must be a tuple of positive odd numbers (e.g., (3,3), (15,15)). Larger values result in more blur
+        sigma_x: Gaussian standard deviation in X direction. If 0, it's calculated automatically based on kernel size
+    Returns:
+        The processed image
     """
-    # 创建单通道灰度图像（初始为指定灰度值）
+    # Create a single-channel grayscale image (initialized with specified grayscale value)
     gray_img = np.ones((height, width), dtype=np.uint8) * gray_value
-    
-    # 添加高斯模糊
+    # Gaussian blur
     blurred_img = cv2.GaussianBlur(gray_img, ksize, sigma_x)
 
     #
     img = cv2.cvtColor(blurred_img, cv2.COLOR_GRAY2BGR)
     return img
 
-
 _top_bkg = create_gray_blur_image(width=camera_w, height=174, gray_value=127, ksize=(5, 5), sigma_x=0)
 
-def prepare_out_blend_frame_2(blend_on_road, img_binary, img_birdeye, img_fit, curvature_cm, offset_cm, steer):
+def prepare_out_blend_frame(blend_on_road, img_binary, img_birdeye, img_fit, curvature_cm, offset_cm, steer):
     """
     Prepare the final pretty pretty output blend, given all intermediate pipeline images
 
@@ -303,41 +254,14 @@ def prepare_out_blend_frame_2(blend_on_road, img_binary, img_birdeye, img_fit, c
 
     thumb_ratio = 0.2
     thumb_h, thumb_w = int(thumb_ratio * h), int(thumb_ratio * w)
-
     off_x, off_y = 20, 15
 
-
-    #######
-    # background = create_gray_blur_image(
-    #                             width=w, 
-    #                             height=int(thumb_ratio*h), 
-    #                             gray_value=127, 
-    #                             ksize=(5, 5),
-    #                             sigma_x=0)
-    # # cv2.imshow('bground', background)
-    # # add a gray rectangle 
-    # blend_on_road = cv2.vconcat([background, blend_on_road])
-
-    ####
-    # top_part = blend_on_road[0:thumb_h+2*off_y, 0:w, :]
-    # blurred_top = cv2.GaussianBlur(top_part, ksize=(75, 75), sigmaX=0)
-    # cv2.imshow('blurred_tops', blurred_top)
-
-    # blend_on_road[0:thumb_h, 0:w, :] = blurred_top
-    # blend_on_road = cv2.vconcat([blurred_top, blend_on_road])
-
+    # add _top_bkg
     blend_on_road = cv2.vconcat([_top_bkg, blend_on_road])
     
-
-    # add thumbnail of binary image
-    # thumb_binary = cv2.resize(img_binary, dsize=(thumb_w, thumb_h))
-    # thumb_binary = np.dstack([thumb_binary, thumb_binary, thumb_binary])
-    # blend_on_road[off_y:thumb_h+off_y, off_x:off_x+thumb_w, :] = thumb_binary
-
     # rgb
     thumb_binary = cv2.resize(img_binary, dsize=(thumb_w, thumb_h))
     blend_on_road[off_y:thumb_h+off_y, off_x:off_x+thumb_w, :] = thumb_binary
-    # cv2.addWeighted()
 
     # add thumbnail of bird's eye view
     thumb_birdeye = cv2.resize(img_birdeye, dsize=(thumb_w, thumb_h))
@@ -359,7 +283,10 @@ def prepare_out_blend_frame_2(blend_on_road, img_binary, img_birdeye, img_fit, c
 
     return blend_on_road
 
-def camera_init(main_size=(camera_w, camera_h), lores_size=(640, 640), hflip=False, vflip=False):
+
+# init camera
+# ==============================================================
+def camera_init(main_size=(camera_w, camera_h), lores_size=None, hflip=False, vflip=False):
     import os
     # set libcamera2 log level
     os.environ['LIBCAMERA_LOG_LEVELS'] = '*:ERROR'
@@ -370,7 +297,8 @@ def camera_init(main_size=(camera_w, camera_h), lores_size=(640, 640), hflip=Fal
 
     preview_config = picam2.preview_configuration
     preview_config.main = {'size': main_size, 'format': 'XRGB8888'}
-    preview_config.lores = {'size': lores_size, 'format': 'RGB888'}
+    if lores_size is not None:
+        preview_config.lores = {'size': lores_size, 'format': 'RGB888'}
     preview_config.format = 'RGB888'  # 'XRGB8888', 'XBGR8888', 'RGB888', 'BGR888', 'YUV420'
     preview_config.transform = libcamera.Transform(
                                     hflip=hflip,
@@ -385,14 +313,6 @@ def camera_init(main_size=(camera_w, camera_h), lores_size=(640, 640), hflip=Fal
 
     return picam2
 
-def hialo_init():
-    from picamera2.devices import Hailo
-
-    hailo = Hailo(model)
-
-    return hailo
-
-
 def read_camera_calibration(file_path):
     import pickle
 
@@ -401,6 +321,15 @@ def read_camera_calibration(file_path):
 
     ret, mtx, dist, rvecs, tvecs = calibration
     return ret, mtx, dist, rvecs, tvecs
+
+# init hailo object detector
+# ==============================================================
+def hialo_init():
+    from picamera2.devices import Hailo
+
+    hailo = Hailo(model)
+
+    return hailo
 
 def extract_detections(hailo_output, w, h, class_names, threshold=0.5):
     """Extract detections from the HailoRT-postprocess output."""
@@ -433,21 +362,38 @@ def extract_detections(hailo_output, w, h, class_names, threshold=0.5):
                     # if area > 4000:
                     #     is_safety = False
 
-
     return results, is_safety
+
+colors = [(0,255,255),(255,0,0),(0,255,64),(255,255,0),
+        (255,128,64),(128,128,255),(255,128,255),(255,128,128)]
+MARGIN = 10
+ROW_SIZE = 15
+FONT_SIZE = 0.8
+FONT_THICKNESS = 1
 
 def draw_objects(frame, detections):
     if detections:
+        i = 0
         for class_name, bbox, score in detections:
             x0, y0, x1, y1 = bbox
-            label = f"{class_name} %{int(score * 100)}"
-            cv2.rectangle(frame, (x0, y0), (x1, y1), (0, 255, 0, 0), 2)
-            cv2.putText(frame, label, (x0 + 5, y0 + 15),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0, 0), 1, cv2.LINE_AA)
+            label = f"{class_name} {int(score * 100)}%"
+            color = colors[i % len(colors)]
+            i += 1
+            cv2.rectangle(frame, (x0, y0), (x1, y1), color, 2)
+            cv2.putText(frame,
+                        label,
+                        (x0 + MARGIN, y0 + MARGIN + ROW_SIZE),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        FONT_SIZE,
+                        color,
+                        FONT_THICKNESS,
+                        cv2.LINE_AA)
 
     return frame
 
 
+# move handler
+# ==============================================================
 move_status = 'stop' # run
 move_running = False
 curvature = 0
@@ -459,7 +405,6 @@ KD = 13.5
 OUT_MAX_ANGLE = 35
 POWER = 45
 OFFSET_R = 1.68
-
 
 thread_lock = threading.Lock()
 
@@ -487,7 +432,6 @@ def move_hander():
                 my_car.stop()
                 time.sleep(0.1)
                 continue
-            # radius < 30cm 时，转弯达到最大？
             # _kk = 30
             # if _curvature == 0:
             #     _steer = 0
@@ -497,7 +441,7 @@ def move_hander():
 
             steer = pid.update(_offset)
 
-            # my_car.move(0, POWER, -steer, drift=False)
+            my_car.move(0, POWER, -steer, drift=False)
 
         elif _status == 'stop':
             steer = 0
@@ -508,17 +452,16 @@ def move_hander():
     time.sleep(0.1)
 
 
-inference_queue = queue.Queue(maxsize=1)  # 限制队列大小，避免内存堆积
+inference_queue = queue.Queue(maxsize=1)  # Limit queue size to prevent memory accumulation
 result_queue = queue.Queue(maxsize=1)
 
 
 def async_inference_worker():
-    """单线程消费队列，按顺序处理推理"""
     while True:
         try:
-            frame = inference_queue.get(timeout=0.1)  # 取出带序号的帧
-            results = hailo.run(frame)
-            result_queue.put(results)  # 结果带序号返回
+            frame = inference_queue.get(timeout=0.1) # get frame from queue
+            results = hailo.run(frame) # inference with hailo
+            result_queue.put(results) # put results to queue
             inference_queue.task_done()
         except queue.Empty:
             continue
@@ -527,6 +470,8 @@ def async_inference_worker():
             # break
             continue
 
+# main
+# ==============================================================
 picam2 = None
 hailo = None
 detections = None
@@ -664,7 +609,7 @@ def main():
             offset = offset_cm
 
         # ------ blend ------
-        blend_output = prepare_out_blend_frame_2(img_hailo, img_birdeye_ori, img_birdeye_binary, img_fit, curvature_cm, offset_cm, steer)
+        blend_output = prepare_out_blend_frame(img_hailo, img_birdeye_ori, img_birdeye_binary, img_fit, curvature_cm, offset_cm, steer)
         # cv2.imshow('blend_output', blend_output)  
 
         # ------ count fps ------
