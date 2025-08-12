@@ -167,8 +167,11 @@ def main():
 
         # Run object detection.
         if IS_ASYNC:
+            # async
+            # if Object Detector task is busy, the new input frame will be ignored
             detector.detect_async(mp_image, time.time_ns() // 1_000_000)
         else:
+            # block
             detection_result = detector.detect(mp_image)
             save_result(detection_result)
 
