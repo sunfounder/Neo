@@ -1,4 +1,7 @@
-from robot_hat import TTS
+# from robot_hat import TTS
+# 修改模块导入从fusion_hat导入
+from fusion_hat import TTS
+
 from time import sleep
 import readline # optimize keyboard input, only need to import
 import sys

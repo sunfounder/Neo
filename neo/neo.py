@@ -1,7 +1,13 @@
 
-from robot_hat import Pin, ADC, PWM, Servo, Motor, Music
-from robot_hat import Grayscale_Module, Ultrasonic, utils
-from robot_hat import Config
+# from robot_hat import Pin, ADC, PWM, Servo, Motor, Music
+# from robot_hat import Grayscale_Module, Ultrasonic, utils
+# from robot_hat import Config
+
+# 修改模块导入从fusion_hat导入
+from fusion_hat import Pin, ADC, PWM, Servo, Motor, Music
+from fusion_hat import Grayscale_Module, Ultrasonic, utils
+from fusion_hat import Config
+
 from .rgb_strip import NeoRGBStrip
 from .sh3001 import SH3001
 from .compass import Compass

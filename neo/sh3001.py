@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import time
-from robot_hat import I2C, fileDB
+# from robot_hat import I2C, fileDB
+# 修改模块导入从fusion_hat导入
+from fusion_hat import I2C, fileDB
 
 # from filedb import fileDB
 

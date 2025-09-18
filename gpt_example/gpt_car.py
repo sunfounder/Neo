@@ -8,7 +8,9 @@ import readline # optimize keyboard input, only need to import
 import speech_recognition as sr
 
 from neo import Neo
-from robot_hat import Pin
+# from robot_hat import Pin
+# 修改模块导入从fusion_hat导入
+from fusion_hat import Pin
 
 import time
 import threading
