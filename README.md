@@ -62,6 +62,12 @@ sudo python3 setup.py install
   A project that simulates auto driving by detecting lane lines through camera vision
   </br><a href="./auto_driver_example" >auto_driver_example</a>
 
+### 快速更新
+```bash
+cd ~/Neo && sudo pip3 install . --break --no-deps --no-build-isolation
+cd ~/fusion-hat && sudo pip3 install . --break --no-deps --no-build-isolation
+```
+
 
 ---
 ## Data sheet
