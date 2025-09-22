@@ -4,9 +4,14 @@
 # from robot_hat import Config
 
 # 修改模块导入从fusion_hat导入
-from fusion_hat import Pin, ADC, PWM, Servo, Motor, Music
-from fusion_hat import Grayscale_Module, Ultrasonic, utils
-from fusion_hat import Config
+from fusion_hat.pin import Pin
+from fusion_hat.adc import ADC
+from fusion_hat.servo import Servo
+from fusion_hat.motor import Motor
+from fusion_hat.music import Music
+from fusion_hat.modules import Grayscale_Module, Ultrasonic
+from fusion_hat.utils import enable_speaker, disable_speaker, run_command
+from fusion_hat.config import Config
 
 from .rgb_strip import NeoRGBStrip
 from .sh3001 import SH3001
@@ -19,6 +24,7 @@ from math import pi, sqrt, sin, cos
 import time
 import ast
 import traceback
+# import json
 
 import imufusion   # https://github.com/xioTechnologies/Fusion
 import numpy as np
@@ -41,14 +47,16 @@ class Neo():
     M2 ------- M1
 
     '''
-    M0_A_PIN = 'P12'
-    M0_B_PIN = 'P13'
-    M1_A_PIN = 'P14'
-    M1_B_PIN = 'P15'
-    M2_A_PIN = 'P16'
-    M2_B_PIN = 'P17'
-    M3_A_PIN = 'P18'
-    M3_B_PIN = 'P19'
+    # 根据fusion_hat的motor.py修改
+    # M0_A_PIN = 'P12'
+    # M0_B_PIN = 'P13'
+    # M1_A_PIN = 'P14'
+    # M1_B_PIN = 'P15'
+    # M2_A_PIN = 'P16'
+    # M2_B_PIN = 'P17'
+    # M3_A_PIN = 'P18'
+    # M3_B_PIN = 'P19'
+    DEFAULT_MOTORS = ['M0', 'M1', 'M2', 'M3']
 
     CAM_PAN_PIN = 'P0'
     CAM_TILT_PIN = 'P1'
@@ -102,7 +110,8 @@ class Neo():
     ]
 
     def __init__(self,
-                motor_pins:list=[M0_A_PIN, M0_B_PIN, M1_A_PIN, M1_B_PIN, M2_A_PIN, M2_B_PIN, M3_A_PIN, M3_B_PIN],
+                # motor_pins:list=[M0_A_PIN, M0_B_PIN, M1_A_PIN, M1_B_PIN, M2_A_PIN, M2_B_PIN, M3_A_PIN, M3_B_PIN],
+                motors:list=DEFAULT_MOTORS,
                 servo_pins:list=[CAM_PAN_PIN, CAM_TILT_PIN],
                 grayscale_pins:list=[GRAYSCALE_L_PIN, GRAYSCALE_M_PIN, GRAYSCALE_R_PIN],
                 ultrasonic_pins:list=[ULTRASONIC_TRIG_PIN, ULTRASONIC_ECHO_PIN],
@@ -110,10 +119,6 @@ class Neo():
                 compass_placement:list=COMPASS_PLACEMENT,
                 config:str=CONFIG,
                 ):
-
-        # reset robot_hat
-        utils.reset_mcu()
-        time.sleep(0.2)
 
         # --------- variables ---------
         self.motors_speed = [0, 0, 0, 0]
@@ -133,25 +138,16 @@ class Neo():
         self.yaw = Value('f', 0.0)
 
         # --------- config_flie ---------
-        self.config = Config(path=config,
-                             mode=0o754,
-                             owner=os.getlogin(),
-                             description=self.CONFIG_DESCRIPTION
-                             )
-        self.motors_direction = ast.literal_eval(
-                self.config.get('motors', 'direction', self.DEFAULT_MOTORS_DIRECTION))
-        self.cam_pan_offset, self.cam_tilt_offset = ast.literal_eval(
-                self.config.get('servos', 'offset', '[0, 0]'))
-        self.line_reference = ast.literal_eval(
-                self.config.get('grayscale', 'line_reference', self.DEFAULT_LINE_REFERENCE))
-        self.cliff_reference = ast.literal_eval(
-                self.config.get('grayscale', 'cliff_reference', self.DEFAULT_CLIFF_REFERENCE))
-        self.compass_offset = ast.literal_eval(
-                self.config.get('compass', 'offset', f'{[0 for _ in range(6)]}'))
-        self.magnetic_declination = str(self.config.get('compass', 'magnetic_declination', f"0°0'E"))
+        # self.config = Config(config_file=config,
+        #                     #  mode=0o754,
+        #                     #  owner=os.getlogin(),
+        #                     #  description=self.CONFIG_DESCRIPTION
+        #                      )
+        self.config = Config(config_file=config)
+        
 
         # write default config if not exist
-        self.config.write()
+        # self.config.write()
         #
         debug(f'motors_direction: {self.motors_direction}')
         debug(f'servos_offset: {self.cam_pan_offset, self.cam_tilt_offset}')
@@ -164,10 +160,10 @@ class Neo():
         try:
             debug("motors init ... ", end='', flush=True)
             # init
-            self.motor_0 = Motor(PWM(motor_pins[0]), PWM(motor_pins[1]), is_reversed=self.motors_direction[0])
-            self.motor_1 = Motor(PWM(motor_pins[2]), PWM(motor_pins[3]), is_reversed=self.motors_direction[1])
-            self.motor_2 = Motor(PWM(motor_pins[4]), PWM(motor_pins[5]), is_reversed=self.motors_direction[2])
-            self.motor_3 = Motor(PWM(motor_pins[6]), PWM(motor_pins[7]), is_reversed=self.motors_direction[3])
+            self.motor_0 = Motor(motors[0], is_reversed=self.motors_direction[0])
+            self.motor_1 = Motor(motors[1], is_reversed=self.motors_direction[1])
+            self.motor_2 = Motor(motors[2], is_reversed=self.motors_direction[2])
+            self.motor_3 = Motor(motors[3], is_reversed=self.motors_direction[3])
             # done
             debug("ok")
         except Exception as e:
@@ -220,17 +216,18 @@ class Neo():
             error(e)
 
         # --------- imu sh3001 init ---------
-        try:
-            debug("imu sh3001 init ... ", end='', flush=True)
-            self.acc_raw = Array('f', 3)
-            self.gyro_raw = Array('f', 3)
-            self.imu = SH3001(acc_range=self.ACC_RANGE, gryo_range=self.GROYTY_RANGE, db=config)
-            debug("ok")
-            debug(f"acc_offset: {self.imu.acc_offset}")
-            debug(f"gyro_offset: {self.imu.gyro_offset}")
-        except Exception as e:
-            error("fail")
-            error(e)
+        # try:
+        debug("imu sh3001 init ... ", end='', flush=True)
+        self.acc_raw = Array('f', 3)
+        self.gyro_raw = Array('f', 3)
+        # 使用保存的配置文件路径，而不是config对象
+        self.imu = SH3001(acc_range=self.ACC_RANGE, gryo_range=self.GROYTY_RANGE, db=self.config_file_path)
+        debug("ok")
+        debug(f"acc_offset: {self.imu.acc_offset}")
+        debug(f"gyro_offset: {self.imu.gyro_offset}")
+        # except Exception as e:
+        #     error("fail")
+        #     error(e)
 
         # --------- geomagnetism qmc6310 init ---------
         try:
@@ -269,7 +266,7 @@ class Neo():
         # --------- microphone check ---------
         try:
             debug("microphone check ... ", end='', flush=True)
-            result = utils.run_command("arecord -l |grep sndrpigooglevoi")
+            result = run_command("arecord -l |grep sndrpigooglevoi")
             if result != '':
                 debug("ok")
             else:
@@ -293,7 +290,7 @@ class Neo():
     # motors
     # ===============================================================================
     def set_motors_direction(self, motors_direction):
-        self.config['motors']['direction'] = list.copy(motors_direction)
+        self.config['motors_direction'] = list.copy(motors_direction)
         self.motors_direction = list.copy(motors_direction)
         self.motor_0.set_is_reverse(motors_direction[0])
         self.motor_1.set_is_reverse(motors_direction[1])
@@ -464,7 +461,7 @@ class Neo():
     def set_cam_servos_offset(self, offset):
         self.cam_pan_offset = round(offset[0], 1)
         self.cam_tilt_offset = round(offset[1], 1)
-        self.config['servos']['offset']  = [self.cam_pan_offset, self.cam_tilt_offset]
+        self.config['servos_offset']  = [self.cam_pan_offset, self.cam_tilt_offset]
 
     # ----
     def reset(self):
@@ -486,12 +483,12 @@ class Neo():
     def set_compass_offset(self, x_min, x_max, y_min, y_max, z_min, z_max):
         self.compass_offset = [x_min, x_max, y_min, y_max, z_min, z_max]
         self.compass_offset = [round(x, 2) for x in self.compass_offset]
-        self.config['compass']['offset'] = self.compass_offset
+        self.config['compass_offset'] = self.compass_offset
         self.compass.set_offset(self.compass_offset)
 
     def set_compass_magnetic_declination(self, declination):
         self.compass.set_magnetic_declination(declination)
-        self.config['compass']['magnetic_declination'] = declination
+        self.config['magnetic_declination'] = declination
 
     def reset_heading(self):
         for _ in range(10):
@@ -642,8 +639,8 @@ class Neo():
     # speaker
     # ===============================================================================
     def enable_speaker(self):
-        utils.enable_speaker()
+        enable_speaker()
 
     def disable_speaker(self):
-        utils.disable_speaker()
+        disable_speaker()
 
