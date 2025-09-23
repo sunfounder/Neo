@@ -11,7 +11,8 @@ from fusion_hat.motor import Motor
 from fusion_hat.music import Music
 from fusion_hat.modules import Grayscale_Module, Ultrasonic
 from fusion_hat.utils import enable_speaker, disable_speaker, run_command
-from fusion_hat.config import Config
+# from fusion_hat.config import Config          # 测试config_backup有效性
+from fusion_hat.config_backup import Config
 
 from .rgb_strip import NeoRGBStrip
 from .sh3001 import SH3001
@@ -24,7 +25,7 @@ from math import pi, sqrt, sin, cos
 import time
 import ast
 import traceback
-# import json
+
 
 import imufusion   # https://github.com/xioTechnologies/Fusion
 import numpy as np
@@ -143,8 +144,23 @@ class Neo():
         #                     #  owner=os.getlogin(),
         #                     #  description=self.CONFIG_DESCRIPTION
         #                      )
-        self.config = Config(config_file=config)
         
+        # self.config = Config(config_file=config)  # 这个是第一次修改，测试config的情况的。
+        self.config = Config(db=config,
+                     mode=0o754,
+                     owner=os.getlogin(),
+                    #  description=self.CONFIG_DESCRIPTION
+                        )
+
+        # 新增：初始化配置属性
+        self.motors_direction = self.config.get('motors_direction', self.DEFAULT_MOTORS_DIRECTION)
+        self.cam_pan_offset, self.cam_tilt_offset = self.config.get('servos_offset', [0, 0])
+        self.line_reference = self.config.get('line_reference', self.DEFAULT_LINE_REFERENCE)
+        self.cliff_reference = self.config.get('cliff_reference', self.DEFAULT_CLIFF_REFERENCE)
+        self.compass_offset = self.config.get('compass_offset', [0, 0, 0, 0, 0, 0])
+        self.magnetic_declination = self.config.get('magnetic_declination', 0)
+        # 保存配置文件路径，供其他模块使用
+        self.config_file_path = config
 
         # write default config if not exist
         # self.config.write()

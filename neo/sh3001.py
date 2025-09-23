@@ -4,7 +4,8 @@ import time
 # 修改模块导入从fusion_hat导入
 # from fusion_hat import I2C, fileDB
 from fusion_hat.i2c import I2C
-from fusion_hat.fileDB import fileDB
+# from fusion_hat.fileDB import fileDB
+from fusion_hat.config_backup import Config
 
 # from filedb import fileDB
 
@@ -431,7 +432,9 @@ class SH3001(I2C):
         if not self.is_avaliable():
             raise IOError("SH3001 is not avaliable")
         self.sh3001_init(acc_range, gryo_range)
-        self.db = fileDB(db=db)
+        # 修改 从fileDB 改为 Config，测试.config_backup文件的准确性
+        # self.db = fileDB(db=db)  
+        self.db = Config(db=db)
         self.acc_offset = self.get_from_config('calibrate_offset_list',
                                                default_value=str(
                                                    self.new_list(0)))
