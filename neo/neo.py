@@ -149,7 +149,7 @@ class Neo():
         self.config = Config(db=config,
                      mode=0o754,
                      owner=os.getlogin(),
-                    #  description=self.CONFIG_DESCRIPTION
+                    #  description=self.CONFIG_DESCRIPTION     
                         )
 
         # 新增：初始化配置属性
@@ -292,15 +292,20 @@ class Neo():
             error(e)
 
         # --------- pid controller init ---------
+        # 新增：PID调试测试结果   debug
+        debug("pid controller init ... ", end='', flush=True)
         self.move_pid = PID(kp=self.MOVE_PID_KP,
                                ki=self.MOVE_PID_KI,
                                kd=self.MOVE_PID_KD,
                                out_max=self.MOVE_PID_OUTPUT_MAX
                                )
+        debug("ok")
 
         # self.reset_heading()
         # --- reset motors and servos ---
+        debug("reset motors and servos ... ", end='', flush=True)
         self.reset()
+        debug("ok")
 
 
     # motors
@@ -368,6 +373,7 @@ class Neo():
 
     def move(self, angle, move_power, rotate_power=0, drift=False):
         # offset angle as 0 to the front
+        
         angle += 90
         #
         rad = angle * pi / 180
