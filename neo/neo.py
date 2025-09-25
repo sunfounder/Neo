@@ -368,7 +368,7 @@ class Neo():
         # offset angle as 0 to the front
         
         angle += 90
-        #
+        # angle2rad
         rad = angle * pi / 180
 
         rotate_power = rotate_power * self.ROTATE_RATIO
