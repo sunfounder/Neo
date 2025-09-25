@@ -48,15 +48,7 @@ class Neo():
     M2 ------- M1
 
     '''
-    # 根据fusion_hat的motor.py修改
-    # M0_A_PIN = 'P12'
-    # M0_B_PIN = 'P13'
-    # M1_A_PIN = 'P14'
-    # M1_B_PIN = 'P15'
-    # M2_A_PIN = 'P16'
-    # M2_B_PIN = 'P17'
-    # M3_A_PIN = 'P18'
-    # M3_B_PIN = 'P19'
+
     DEFAULT_MOTORS = ['M0', 'M1', 'M2', 'M3']
 
     CAM_PAN_PIN = 'P0'
@@ -111,7 +103,6 @@ class Neo():
     ]
 
     def __init__(self,
-                # motor_pins:list=[M0_A_PIN, M0_B_PIN, M1_A_PIN, M1_B_PIN, M2_A_PIN, M2_B_PIN, M3_A_PIN, M3_B_PIN],
                 motors:list=DEFAULT_MOTORS,
                 servo_pins:list=[CAM_PAN_PIN, CAM_TILT_PIN],
                 grayscale_pins:list=[GRAYSCALE_L_PIN, GRAYSCALE_M_PIN, GRAYSCALE_R_PIN],
@@ -138,21 +129,7 @@ class Neo():
         self.pitch = Value('f', 0.0)
         self.yaw = Value('f', 0.0)
 
-        # --------- config_flie ---------
-        # self.config = Config(config_file=config,
-        #                     #  mode=0o754,
-        #                     #  owner=os.getlogin(),
-        #                     #  description=self.CONFIG_DESCRIPTION
-        #                      )
-        
-        # self.config = Config(config_file=config)  # 这个是第一次修改，测试config的情况的。
-        self.config = Config(db=config,
-                     mode=0o754,
-                     owner=os.getlogin(),
-                    #  description=self.CONFIG_DESCRIPTION     
-                        )
-
-        # 新增：初始化配置属性
+        # [新增]:初始化配置属性
         self.motors_direction = self.config.get('motors_direction', self.DEFAULT_MOTORS_DIRECTION)
         self.cam_pan_offset, self.cam_tilt_offset = self.config.get('servos_offset', [0, 0])
         self.line_reference = self.config.get('line_reference', self.DEFAULT_LINE_REFERENCE)
@@ -161,6 +138,21 @@ class Neo():
         self.magnetic_declination = self.config.get('magnetic_declination', 0)
         # 保存配置文件路径，供其他模块使用
         self.config_file_path = config
+
+        # --------- config_flie ---------
+        # self.config = Config(config_file=config,
+        #                     #  mode=0o754,
+        #                     #  owner=os.getlogin(),
+        #                     #  description=self.CONFIG_DESCRIPTION
+        #                      )
+        
+        self.config = Config(db=config,
+                     mode=0o754,
+                     owner=os.getlogin(),
+                    #  description=self.CONFIG_DESCRIPTION     
+                        )
+
+
 
         # write default config if not exist
         # self.config.write()
@@ -319,7 +311,7 @@ class Neo():
         self.motor_3.set_is_reverse(motors_direction[3])
 
     def set_motors(self, m0_power, m1_power, m2_power, m3_power):
-        #
+        # smooth speed control
         _ERROR = 20
         _STEP = 10
         _DEALY = 0.005
@@ -330,44 +322,45 @@ class Neo():
         # ---- m0 ----
         if m0_power - last_m0_power > _ERROR:
             for i in range(round(last_m0_power), round(m0_power), _STEP):
-                self.motor_0.speed(i)
+                self.motor_0.power(i)
                 time.sleep(_DEALY)
         elif m0_power - last_m0_power < -_ERROR:
             for i in range(round(last_m0_power), round(m0_power), -_STEP):
-                self.motor_0.speed(i)
+                self.motor_0.power(i)
                 time.sleep(_DEALY)
         # ---- m1 ----
         if m1_power - last_m1_power > _ERROR:
             for i in range(round(last_m1_power), round(m1_power), _STEP):
-                self.motor_1.speed(i)
+                self.motor_1.power(i)
                 time.sleep(_DEALY)
         elif m1_power - last_m1_power < -_ERROR:
             for i in range(round(last_m1_power), round(m1_power), -_STEP):
-                self.motor_1.speed(i)
+                self.motor_1.power(i)
                 time.sleep(_DEALY)
         # ---- m2 ----
         if m2_power - last_m2_power > _ERROR:
             for i in range(round(last_m2_power), round(m2_power), _STEP):
-                self.motor_2.speed(i)
+                self.motor_2.power(i)
                 time.sleep(_DEALY)
         elif m2_power - last_m2_power < -_ERROR:
             for i in range(round(last_m2_power), round(m2_power), -_STEP):
-                self.motor_2.speed(i)
+                self.motor_2.power(i)
                 time.sleep(_DEALY)
         # ---- m3 ----
         if m3_power - last_m3_power > _ERROR:
             for i in range(round(last_m3_power), round(m3_power), _STEP):
-                self.motor_3.speed(i)
+                self.motor_3.power(i)
                 time.sleep(_DEALY)
         elif m3_power - last_m3_power < -_ERROR:
             for i in range(round(last_m3_power), round(m3_power), -_STEP):
-                self.motor_3.speed(i)
+                self.motor_3.power(i)
                 time.sleep(_DEALY)
 
-        self.motor_0.speed(m0_power)
-        self.motor_1.speed(m1_power)
-        self.motor_2.speed(m2_power)
-        self.motor_3.speed(m3_power)
+        
+        self.motor_0.power(m0_power)
+        self.motor_1.power(m1_power)
+        self.motor_2.power(m2_power)
+        self.motor_3.power(m3_power)
 
         self.motors_speed = [m0_power, m1_power, m2_power, m3_power]
 
@@ -401,10 +394,10 @@ class Neo():
     # rotation direction 
 
     def stop_motors(self):
-        self.motor_0.speed(0)
-        self.motor_1.speed(0)
-        self.motor_2.speed(0)
-        self.motor_3.speed(0)
+        self.motor_0.power(0)
+        self.motor_1.power(0)
+        self.motor_2.power(0)
+        self.motor_3.power(0)
         self.motors_speed = [0, 0, 0, 0]
 
     def stop(self):

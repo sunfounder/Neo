@@ -7,45 +7,6 @@ power = 50
 debug("neo init ok ", end='\n', flush=True)
 
 
-# 异常处理
-# try:
-#     while True:
-#         my_car.move(0, power)
-#         sleep(1)
-#         my_car.move(180, power)
-#         sleep(1)
-#         my_car.move(45, power)
-#         sleep(1)
-#         my_car.move(225, power)
-#         sleep(1)
-#         my_car.move(90, power)
-#         sleep(1)
-#         my_car.move(270, power)
-#         sleep(1)
-#         my_car.move(135, power)
-#         sleep(1)
-#         my_car.move(315, power)
-#         sleep(1)
-#         #
-#         my_car.move(180, power)
-#         sleep(1)
-#         my_car.move(0, power)
-#         sleep(1)
-#         my_car.move(225, power)
-#         sleep(1)
-#         my_car.move(45, power)
-#         sleep(1)
-#         my_car.move(270, power)
-#         sleep(1)
-#         my_car.move(90, power)
-#         sleep(1)
-#         my_car.move(315, power)
-#         sleep(1)
-#         my_car.move(135, power)
-#         sleep(1)
-#         #
-#         my_car.stop()
-#         sleep(2)
 try:
     while True:
         try:
@@ -92,9 +53,8 @@ try:
             print(f"Error during movement: {e}")
             debug(f"Error during movement: {e}")
             my_car.stop()
-            sleep(1)  # 暂停一下再继续
-            # 可以选择继续循环或者退出
-            break  # 如果想要出错后退出循环，取消这行的注释
+            sleep(1)  
+            break  
 
 finally:
     print("Stop")
