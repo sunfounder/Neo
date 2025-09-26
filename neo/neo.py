@@ -11,8 +11,8 @@ from fusion_hat.motor import Motor
 from fusion_hat.music import Music
 from fusion_hat.modules import Grayscale_Module, Ultrasonic
 from fusion_hat.utils import enable_speaker, disable_speaker, run_command
-# from fusion_hat.config import Config          # 测试config_backup有效性
-from fusion_hat.config_backup import Config
+from fusion_hat.config import Config         
+# from fusion_hat.config_backup import Config
 
 from .rgb_strip import NeoRGBStrip
 from .sh3001 import SH3001
