@@ -3,3 +3,4 @@ build/*
 bk/
 devlog/
 test/
+*.code-workspace

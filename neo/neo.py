@@ -129,16 +129,6 @@ class Neo():
         self.pitch = Value('f', 0.0)
         self.yaw = Value('f', 0.0)
 
-        # [新增]:初始化配置属性
-        self.motors_direction = self.config.get('motors_direction', self.DEFAULT_MOTORS_DIRECTION)
-        self.cam_pan_offset, self.cam_tilt_offset = self.config.get('servos_offset', [0, 0])
-        self.line_reference = self.config.get('line_reference', self.DEFAULT_LINE_REFERENCE)
-        self.cliff_reference = self.config.get('cliff_reference', self.DEFAULT_CLIFF_REFERENCE)
-        self.compass_offset = self.config.get('compass_offset', [0, 0, 0, 0, 0, 0])
-        self.magnetic_declination = self.config.get('magnetic_declination', 0)
-        # 保存配置文件路径，供其他模块使用
-        self.config_file_path = config
-
         # --------- config_flie ---------
         # self.config = Config(config_file=config,
         #                     #  mode=0o754,
@@ -151,6 +141,16 @@ class Neo():
                      owner=os.getlogin(),
                     #  description=self.CONFIG_DESCRIPTION     
                         )
+
+        # [新增]:初始化配置属性
+        self.motors_direction = self.config.get('motors_direction', self.DEFAULT_MOTORS_DIRECTION)
+        self.cam_pan_offset, self.cam_tilt_offset = self.config.get('servos_offset', [0, 0])
+        self.line_reference = self.config.get('line_reference', self.DEFAULT_LINE_REFERENCE)
+        self.cliff_reference = self.config.get('cliff_reference', self.DEFAULT_CLIFF_REFERENCE)
+        self.compass_offset = self.config.get('compass_offset', [0, 0, 0, 0, 0, 0])
+        self.magnetic_declination = self.config.get('magnetic_declination', 0)
+        # 保存配置文件路径，供其他模块使用
+        self.config_file_path = config
 
 
 
