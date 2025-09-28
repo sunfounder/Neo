@@ -339,8 +339,19 @@ def motors_and_servos_calibration():
     
     show_static_content()
     # TODO: read from config file
+    try:
+        motors_direction = list.copy(my_car.config.get('motors_direction', my_car.DEFAULT_MOTORS_DIRECTION))
+        cam_pan_offset = round(my_car.config.get('servos_offset', [0, 0])[0], 1)
+        cam_tilt_offset = round(my_car.config.get('servos_offset', [0, 0])[1], 1)
+        draw_bottom('Config loaded successfully.')
+    except Exception as e:
+        draw_bottom(f"Config read failed: {str(e)}. Using default values.")
+        # 是不是和上面初始变量冲突？
+        motors_direction = list.copy(my_car.DEFAULT_MOTORS_DIRECTION)
+        cam_pan_offset = 0.0
+        cam_tilt_offset = 0.0
 
-    #
+    # get param from config/default and display
     cam_pan_offset = round(cam_pan_offset, 1)
     cam_tilt_offset = round(cam_tilt_offset, 1)
     _offset_obj = {
@@ -486,7 +497,14 @@ def _draw_offset(obj):
 
 def calibrate_compass_handler():
     global compass_offset, compass_offset_obj, on_compass_calibrating
-    
+    # value Init 
+    x_min = 0
+    x_max = 0
+    y_min = 0
+    y_max = 0
+    z_min = 0
+    z_max = 0
+
     _st = time.time()
     while on_compass_calibrating:
         x_raw, y_raw, z_raw = my_car.read_compass_raw()
@@ -531,6 +549,21 @@ def compass_calibration():
     _has_saved = False
 
     # TODO: read from config file
+    # maybe resolve ungot keyword argument 'db'
+    try:
+        # Get the compass offset configuration value directly from my_car.config
+        compass_offset = list.copy(my_car.config.get('compass_offset', [0]*6))
+        draw_bottom('Compass config loaded successfully.')
+        time.sleep(.5) # Persistence of vision
+        clear_bottom()
+    except Exception as e:
+        draw_bottom(f"Compass config read failed: {str(e)}. Using default values.")
+        compass_offset = [0]*6  # default 
+        
+    # update
+    compass_offset_obj['content'] = [
+        f"compass offset: {compass_offset}",  
+    ]
 
     def refresh_screen():
         # clear screen
