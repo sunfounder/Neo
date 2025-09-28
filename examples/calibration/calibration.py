@@ -340,12 +340,22 @@ def motors_and_servos_calibration():
     show_static_content()
     # TODO: read from config file
     try:
-        motors_direction = list.copy(my_car.config.get('motors_direction', my_car.DEFAULT_MOTORS_DIRECTION))
-        cam_pan_offset = round(my_car.config.get('servos_offset', [0, 0])[0], 1)
-        cam_tilt_offset = round(my_car.config.get('servos_offset', [0, 0])[1], 1)
+        motors_direction = my_car.config.get('motors_direction', my_car.DEFAULT_MOTORS_DIRECTION).copy()
+        cam_pan_offset = my_car.config.get('servos_offset', [0.0, 0.0])[0]
+        cam_tilt_offset = my_car.config.get('servos_offset', [0.0, 0.0])[1]
+ 
+        config_values = [ 
+            f"motors direction: {motors_direction}",                              
+            f"servos offset: {[cam_pan_offset, cam_tilt_offset]}"
+        ]
+
         draw_bottom('Config loaded successfully.')
         time.sleep(.5) # Persistence of vision
         clear_bottom()
+        draw_bottom(config_values)
+        time.sleep(1)
+        clear_bottom(line = len(config_values))
+        
     except Exception as e:
         draw_bottom(f"Config read failed: {str(e)}. Using default values.")
 
@@ -547,13 +557,19 @@ def compass_calibration():
     _has_saved = False
 
     # TODO: read from config file
-    # maybe resolve ungot keyword argument 'db'
     try:
         # Get the compass offset configuration value directly from my_car.config
-        compass_offset = list.copy(my_car.config.get('compass_offset', [0]*6))
+        compass_offset = my_car.config.get('compass_offset', [0]*6)
+        config_values = [
+            f"compass offset: {compass_offset}"
+        ]
         draw_bottom('Compass config loaded successfully.')
         time.sleep(.5) # Persistence of vision
-        clear_bottom()
+        
+        # [DEBUG] 打印读取到的配置值 
+        draw_bottom(config_values)
+        time.sleep(1)
+        clear_bottom(line = len(config_values))
     except Exception as e:
         draw_bottom(f"Compass config read failed: {str(e)}. Using default values.")
         compass_offset = [0]*6  # default 
@@ -622,7 +638,7 @@ def compass_calibration():
             _box_width = ASK_SAVE['box_width']
             if draw_ask(ASK_SAVE['content'], location=(int((CONTENT_WIDTH-_box_width)/2), 6), align='center', box_width=_box_width):
                 # TODO: save to config file
-                my_car.config.write()
+                my_car.config.write()   # save
                 _has_saved = True
                 refresh_screen()
                 draw_bottom('Saved.')
@@ -730,7 +746,36 @@ def grayscale_module_calibration():
     _has_saved = False
     _mode = 0
     _last_mode = 0
+
+
     # TODO: read from config file
+    try:
+        line_reference = my_car.config.get('line_reference', [0]*3)
+        cliff_reference = my_car.config.get('cliff_reference', [0]*3)
+        grayscle_extremum = my_car.config.get('grayscle_extremum', [[4095, 0]]*3)
+        config_values = [
+            f"Line reference: {line_reference}",
+            f"Cliff reference: {cliff_reference}",
+            f"Grayscale extremum: {grayscle_extremum}"
+        ]
+        
+        draw_bottom('Config loaded successfully.')
+        time.sleep(.5) # Persistence of vision
+        
+        # [DEBUG] 打印读取到的配置值 
+        draw_bottom(config_values)
+        time.sleep(1)
+        clear_bottom(line = len(config_values))
+
+    except Exception as e:
+        # 配置读取失败，设置默认值并显示错误信息
+        draw_bottom(f"Config read failed: {str(e)}. Using default values.")
+        time.sleep(10) # Persistence of vision
+        clear_bottom()
+
+        # line_reference = [0, 0, 0]
+        # cliff_reference = [0, 0, 0]
+        # grayscle_extremum = [[4095, 0]]*3
 
     def refresh_screen():
         # clear screen
@@ -754,7 +799,7 @@ def grayscale_module_calibration():
     refresh_screen()
     while True:
         key = term.inkey(timeout=0.1)
-        print(key)
+        # print(key) 
         if key.name == 'KEY_UP':
             _mode = _mode - 1 if _mode > 0 else len(GRAYSCALE_OPTIONS['content']) - 1
         elif key.name == 'KEY_DOWN':
@@ -764,6 +809,7 @@ def grayscale_module_calibration():
         elif key == '2':
             _mode = 1
         elif key.name == 'KEY_ENTER':
+            # mode 0 : line reference calibration
             if _mode == 0:
                 draw(LINE_REF_CALI_TIPS['content'],
                      color=LINE_REF_CALI_TIPS['color'],
@@ -789,9 +835,14 @@ def grayscale_module_calibration():
                                 draw_bottom('Cancel.')
                                 break
                         break
+            # mode 1 : cliff reference calibration  
             elif _mode == 1:
                 # TODO:
-                pass
+                draw_bottom('mode 1 ')
+                time.sleep(20)
+                clear_bottom()
+                break
+                # pass
         elif key.name == 'KEY_ESCAPE':
             clear_bottom()
             if not _has_saved:
@@ -846,8 +897,8 @@ def loop():
     elif mode == 1:
         compass_calibration()
     elif mode == 2:
-        # grayscale_module_calibration()
-        grayscale_module_calibration_under_construction()
+        grayscale_module_calibration()
+        # grayscale_module_calibration_under_construction()
     else:
         pass
 
