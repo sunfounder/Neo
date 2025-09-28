@@ -344,6 +344,8 @@ def motors_and_servos_calibration():
         cam_pan_offset = round(my_car.config.get('servos_offset', [0, 0])[0], 1)
         cam_tilt_offset = round(my_car.config.get('servos_offset', [0, 0])[1], 1)
         draw_bottom('Config loaded successfully.')
+        time.sleep(.5) # Persistence of vision
+        clear_bottom()
     except Exception as e:
         draw_bottom(f"Config read failed: {str(e)}. Using default values.")
 
