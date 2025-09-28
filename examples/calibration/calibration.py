@@ -346,10 +346,6 @@ def motors_and_servos_calibration():
         draw_bottom('Config loaded successfully.')
     except Exception as e:
         draw_bottom(f"Config read failed: {str(e)}. Using default values.")
-        # 是不是和上面初始变量冲突？
-        motors_direction = list.copy(my_car.DEFAULT_MOTORS_DIRECTION)
-        cam_pan_offset = 0.0
-        cam_tilt_offset = 0.0
 
     # get param from config/default and display
     cam_pan_offset = round(cam_pan_offset, 1)
