@@ -642,12 +642,14 @@ class Neo():
     def set_line_reference(self, reference):
         if isinstance(reference, list) and len(reference) == 3:
             self.line_reference = list.copy(reference)
+            self.config['line_reference'] = self.line_reference # Update
         else:
             raise TypeError("reference parameter must be 1*3 list.")
 
     def set_cliff_reference(self, reference):
         if isinstance(reference, list) and len(reference) == 3:
             self.cliff_reference = list.copy(reference)
+            self.config['cliff_reference'] = self.cliff_reference  
         else:
             raise TypeError("reference parameter must be 1*3 list.")
 
