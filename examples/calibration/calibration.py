@@ -710,20 +710,115 @@ LINE_REF_CALI_TIPS = {
     'color': THEME_CHOSEN_COLOR,
 }
 
-def line_reference_calibrate_handler():
-    global line_reference, grayscale_date, grayscale_extremum, grayscale_running
-
-    # 0 ~ 3s, left
-    # 3 ~ 6s, right
-    # 7 ~ 10s, left
-    # > 10s stop
-    _st = time.time()
+# [ADD1] Grayscale sensor data reading loop
+def read_grayscale_data_loop():
+    global grayscale_date, grayscle_extremum, grayscale_running
+    
     while grayscale_running:
-        if time.time() - _st > 1:
-            _st = time.time()
-            grayscale_date = [random.randint(0, 4095) for _ in range(3)]
+        try:
+            # Read the actual grayscale sensor data
+            grayscale_reading, _ = my_car.read_grayscale()
+            grayscale_date = grayscale_reading
+            
+            # Update the extremum record
+            for i in range(3):
+                if grayscale_date[i] > grayscle_extremum[i][0]:
+                    grayscle_extremum[i][0] = grayscale_date[i]
+                if grayscale_date[i] < grayscle_extremum[i][1]:
+                    grayscle_extremum[i][1] = grayscale_date[i]
+        except Exception as e:
+            # Handle exceptions, e.g., log the error or display a message
+            draw_bottom(f"Error: {e}")
         
-        grayscale_date = [random.randint(0, 4095) for _ in range(3)]
+        time.sleep(0.2)  # Read data every 0.2 seconds
+
+def line_reference_calibrate_handler():
+    global line_reference, grayscale_date, grayscle_extremum, grayscale_running
+    global cliff_reference
+    
+    # tmp_date[]
+    grayscle_extremum_tmp = [
+        [4095,0],  # [最大值, 最小值]
+        [4095,0],
+        [4095,0],
+    ]
+    
+    # Create and start the grayscale data reading thread
+    grayscale_data_thread = threading.Thread(target=read_grayscale_data_loop,args=(grayscle_extremum_tmp,))
+    grayscale_data_thread.daemon = True                 # save thread,die in mainThread break
+    grayscale_data_thread.start()
+    
+    try:
+        _angle = 35     # Servo steering angle
+        _delay = 2      # Moving delay time
+        _power = 30     # Moving power
+        
+        # Move forward to the left and collect data on the left side
+        draw_bottom('Moving left...')
+        my_car.set_cam_pan(-_angle)
+        my_car.move(0, _power, _power)  # turn left and forward
+        time.sleep(_delay)
+        
+        # Move backward to the left and collect data on the left side
+        draw_bottom('Moving left backward...')
+        my_car.set_cam_pan(_angle)
+        my_car.move(180, _power, _power)  # turn left and backward
+        time.sleep(_delay)
+        
+        # Stop and return to the middle position
+        my_car.stop()
+        my_car.set_cam_pan(0)
+        time.sleep(.2)
+        
+        # Move forward to the right and collect data on the right side
+        draw_bottom('Moving right...')
+        my_car.set_cam_pan(_angle)
+        my_car.move(0, _power, -_power)  # turn right and forward
+        time.sleep(_delay)
+        
+        # Move backward to the right and collect data on the right side 
+        draw_bottom('Moving right backward...')
+        my_car.set_cam_pan(-_angle)
+        my_car.move(180, _power, -_power)  # turn right and backward
+        time.sleep(_delay)
+        
+        # Stop and return to the middle position
+        my_car.set_cam_pan(0)
+        my_car.stop()
+        time.sleep(.2)
+
+        # Calibration completed. Merge temporary values into global variables.
+        # Temporary variables are used to avoid accidentally modifying global values.
+        for i in range(3):
+            grayscle_extremum[i][0] = grayscle_extremum_tmp[i][0]
+            grayscle_extremum[i][1] = grayscle_extremum_tmp[i][1]
+        
+        # Mean value
+        line_reference = [
+            int((grayscle_extremum[0][0] + grayscle_extremum[0][1]) / 2),
+            int((grayscle_extremum[1][0] + grayscle_extremum[1][1]) / 2),
+            int((grayscle_extremum[2][0] + grayscle_extremum[2][1]) / 2),
+        ]
+        
+        if all(cliff_reference[i] < line_reference[i] for i in range(3)):
+            cliff_reference = [
+                int((cliff_reference[0] + line_reference[0]) / 2),
+                int((cliff_reference[1] + line_reference[1]) / 2),
+                int((cliff_reference[2] + line_reference[2]) / 2),
+            ]
+        
+        draw_bottom('Line reference calibration completed!')
+        time.sleep(1)
+        
+    except Exception as e:
+        draw_bottom(f'Calibration error: {str(e)}')
+        time.sleep(1)
+    finally:
+        my_car.stop()
+        grayscale_running = False
+        # Wait for the grayscale data reading thread to finish
+        grayscale_data_thread.join(timeout=1.0)
+
 
 
 def grayscale_module_calibration_under_construction():
@@ -821,20 +916,56 @@ def grayscale_module_calibration():
                     key = term.inkey(timeout=0.1)
                     if key.name == 'KEY_ENTER':
                         refresh_screen()
-                        draw_bottom('line reference calibrating ... (press \'q\' to stop)',
+                        draw_bottom('Line reference calibrating ... (press \'q\' to stop)',
                                     THEME_CHOSEN_COLOR,
                                     align='left',
                                     box_width=CONTENT_WIDTH,
                                     )
-                        while True:
+                        
+                        # 设置运行标志并创建校准线程
+                        global grayscale_running
+                        grayscale_running = True
+                        calibration_thread = threading.Thread(target=line_reference_calibrate_handler)
+                        calibration_thread.daemon = True    
+                        calibration_thread.start()
+                        
+                        # 等待校准完成或用户取消
+                        while calibration_thread.is_alive() and grayscale_running:
                             key = term.inkey(timeout=0.1)
                             if key.lower() == 'q':
-
-                                # t.join()
-                                clear_bottom()
-                                draw_bottom('Cancel.')
+                                grayscale_running = False
                                 break
+                            # 实时更新屏幕显示
+                            refresh_screen()
+                            draw_bottom('Line reference calibrating ... (press \'q\' to stop)',
+                                        THEME_CHOSEN_COLOR,
+                                        align='left',
+                                        box_width=CONTENT_WIDTH,
+                                        )
+                        
+                        # 等待校准线程结束
+                        calibration_thread.join(timeout=1.0)
+                        
+                        # 刷新屏幕并显示最新的参考值
+                        refresh_screen()
+                        # 使用set方法更新my_car实例的配置值
+                        my_car.set_line_reference(line_reference)
+                    
+                        if not (isinstance(cliff_reference, list) and len(cliff_reference) == 3):
+                            draw_bottom('Warning: Cliff reference must be a 1*3 list. Using default values.')
+                            time.sleep(1)
+
+                        my_car.set_cliff_reference(cliff_reference)
+                        refresh_screen()
+                        draw_bottom('Line reference: ' + str(line_reference))
+                        draw_bottom('Cliff reference: ' + str(cliff_reference))
+
+
+                        time.sleep(1)
+                        clear_bottom(line = 2)
+
                         break
+
             # mode 1 : cliff reference calibration  
             elif _mode == 1:
                 # TODO:
@@ -860,6 +991,7 @@ def grayscale_module_calibration():
             _box_width = ASK_SAVE['box_width']
             if draw_ask(ASK_SAVE['content'], location=(int((CONTENT_WIDTH-_box_width)/2), 6), align='center', box_width=_box_width):
                 # TODO: save to config file
+                my_car.config.write()   # write() or set()
                 _has_saved = True
                 refresh_screen()
                 draw_bottom('Saved.')
@@ -878,6 +1010,7 @@ def grayscale_module_calibration():
                         box_width=32
                         )
         # ------------------
+        # this will be fix
         grayscale_date = [random.randint(0, 4096) for _ in range(3)]
         grayscale_date_obj['content'] = [
             f"grayscale_date: {grayscale_date}",
