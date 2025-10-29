@@ -131,11 +131,7 @@ class Neo():
         #                     #  description=self.CONFIG_DESCRIPTION
         #                      )
         
-        self.config = Config(db=config,
-                     mode=0o754,
-                     owner=os.getlogin(),
-                    #  description=self.CONFIG_DESCRIPTION     
-                        )
+        self.config = Config(config_file=config)
 
         # [新增]:初始化配置属性
         self.motors_direction = self.config.get('motors_direction', self.DEFAULT_MOTORS_DIRECTION)

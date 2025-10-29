@@ -428,7 +428,7 @@ class SH3001(I2C):
         if not self.is_avaliable():
             raise IOError("SH3001 is not avaliable")
         self.sh3001_init(acc_range, gryo_range)
-        self.db = Config(db=db)
+        self.db = Config(config_file=db)
         self.acc_offset = self.get_from_config('calibrate_offset_list',
                                                default_value=str(
                                                    self.new_list(0)))
