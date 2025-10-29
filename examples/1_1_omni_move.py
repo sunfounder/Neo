@@ -3,7 +3,7 @@ from time import sleep
 
 my_car = Neo()
 power = 50
-# 全向移动
+# Omni-directional movement
 
 
 try:
