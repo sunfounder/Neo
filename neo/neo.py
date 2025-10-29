@@ -3,11 +3,10 @@ from fusion_hat.adc import ADC
 from fusion_hat.servo import Servo
 from fusion_hat.motor import Motor
 from fusion_hat.music import Music
-from fusion_hat.modules import Grayscale_Module, Ultrasonic
 from fusion_hat._utils import run_command
-from fusion_hat.device import enable_speaker, disable_speaker
 from fusion_hat._config import Config         
-
+from fusion_hat.modules import Grayscale_Module, Ultrasonic
+from fusion_hat.device import enable_speaker, disable_speaker
 
 from .rgb_strip import NeoRGBStrip
 from .sh3001 import SH3001
@@ -53,11 +52,11 @@ class Neo():
     GRAYSCALE_M_PIN = 'A1'
     GRAYSCALE_R_PIN = 'A2'
 
-    ULTRASONIC_TRIG_PIN = 'D0'
-    ULTRASONIC_ECHO_PIN = 'D1'
+    ULTRASONIC_TRIG_PIN = 17  # origin:'D0' -> change:17
+    ULTRASONIC_ECHO_PIN = 4  # origin:'D1' -> change:4
 
-    IR_OBSTACLE_L_PIN = 'D2'
-    IR_OBSTACLE_R_PIN = 'D3'
+    IR_OBSTACLE_L_PIN = 27  # origin:'D2' -> change:27
+    IR_OBSTACLE_R_PIN = 22  # origin:'D3' -> change:22
 
     COMPASS_PLACEMENT = ['x', 'y', 'z']
 
@@ -124,13 +123,7 @@ class Neo():
         self.pitch = Value('f', 0.0)
         self.yaw = Value('f', 0.0)
 
-        # --------- config_flie ---------
-        # self.config = Config(config_file=config,
-        #                     #  mode=0o754,
-        #                     #  owner=os.getlogin(),
-        #                     #  description=self.CONFIG_DESCRIPTION
-        #                      )
-        
+
         self.config = Config(config_file=config)
 
         # [新增]:初始化配置属性
@@ -140,8 +133,7 @@ class Neo():
         self.cliff_reference = self.config.get('cliff_reference', self.DEFAULT_CLIFF_REFERENCE)
         self.compass_offset = self.config.get('compass_offset', [0, 0, 0, 0, 0, 0])
         self.magnetic_declination = self.config.get('magnetic_declination', 0)
-        # 保存配置文件路径，供其他模块使用
-        self.config_file_path = config
+
 
 
 
@@ -198,6 +190,7 @@ class Neo():
             debug("ultrasonic init ... ", end='', flush=True)
             trig = Pin(ultrasonic_pins[0], mode=Pin.OUT)
             echo = Pin(ultrasonic_pins[1], mode=Pin.IN, pull=Pin.PULL_DOWN)
+            # TODO :类型错误
             self.ultrasonic = Ultrasonic(trig, echo)
             debug("ok")
         except Exception as e:
@@ -219,8 +212,7 @@ class Neo():
         debug("imu sh3001 init ... ", end='', flush=True)
         self.acc_raw = Array('f', 3)
         self.gyro_raw = Array('f', 3)
-        # 使用保存的配置文件路径，而不是config对象
-        self.imu = SH3001(acc_range=self.ACC_RANGE, gryo_range=self.GROYTY_RANGE, db=self.config_file_path)
+        self.imu = SH3001(acc_range=self.ACC_RANGE, gryo_range=self.GROYTY_RANGE, db=config)
         debug("ok")
         debug(f"acc_offset: {self.imu.acc_offset}")
         debug(f"gyro_offset: {self.imu.gyro_offset}")
