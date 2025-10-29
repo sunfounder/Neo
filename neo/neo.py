@@ -1,18 +1,13 @@
-
-# from robot_hat import Pin, ADC, PWM, Servo, Motor, Music
-# from robot_hat import Grayscale_Module, Ultrasonic, utils
-# from robot_hat import Config
-
-# 修改模块导入从fusion_hat导入
 from fusion_hat.pin import Pin
 from fusion_hat.adc import ADC
 from fusion_hat.servo import Servo
 from fusion_hat.motor import Motor
 from fusion_hat.music import Music
 from fusion_hat.modules import Grayscale_Module, Ultrasonic
-from fusion_hat.utils import enable_speaker, disable_speaker, run_command
-from fusion_hat.config import Config         
-# from fusion_hat.config_backup import Config
+from fusion_hat._utils import run_command
+from fusion_hat.device import enable_speaker, disable_speaker
+from fusion_hat._config import Config         
+
 
 from .rgb_strip import NeoRGBStrip
 from .sh3001 import SH3001
@@ -655,6 +650,7 @@ class Neo():
 
     # speaker
     # ===============================================================================
+    # [理解性注释] utils->device
     def enable_speaker(self):
         enable_speaker()
 

@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 # from robot_hat import I2C, fileDB
 
-# 修改模块导入从fusion_hat导入
-# from fusion_hat import I2C, fileDB
-# 这里并没有使用到db文件，但是却导入了，估计是后续需要将罗盘数据导入数据库。
-# TODO:罗盘数据导入数据库
-from fusion_hat.config import Config
+from fusion_hat._config import Config
 from fusion_hat.i2c import I2C
 import time
 from math import pi, atan2, degrees
