@@ -576,12 +576,15 @@ class Neo():
 
             self.roll.value, self.pitch.value, self.yaw.value = ahrs.quaternion.to_euler()
 
-            # --- delay --
-            try:
-                time.sleep(dt-(time.time() - _st))
-            except:
+            # --- delay ---
+            elapsed = time.time() - _st
+            if elapsed < dt:
+                time.sleep(dt - elapsed)
+            else:
+                # multiple timeout handling
                 self._imufusion_timeout_cnt.value += 1
-                error(f'imu_fusion_timeout')
+                if self._imufusion_timeout_cnt.value % 100 == 0:  
+                    debug(f'IMU processing took longer than expected: {elapsed:.6f}s vs target {dt:.6f}s')
 
             self._imufusion_take.value = time.time() - _st
             _st = time.time()
