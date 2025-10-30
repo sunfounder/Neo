@@ -27,7 +27,7 @@ def obstacle_avoidance():
 
     print(f"{[is_left_clear, is_middle_clear, is_right_clear]},    distance: {distance}")
 
-    # 111
+    # 111 - No obstacles detected in all three directions of the car
     if (is_left_clear and is_right_clear and is_middle_clear):
         last_status = 'forward'
         my_car.forward(FORWARD_POWER)
