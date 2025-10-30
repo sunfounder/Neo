@@ -1,7 +1,7 @@
 from neo import Neo
 from time import sleep
 
-# TODO: setting the placement, range of compass (?)
+
 
 my_car = Neo()
 
