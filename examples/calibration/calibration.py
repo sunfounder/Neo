@@ -448,14 +448,11 @@ def motors_and_servos_calibration():
             if draw_ask(ASK_SAVE['content'], location=(int((CONTENT_WIDTH-_box_width)/2), 6), align='center', box_width=_box_width):
                 my_car.set_motors_direction(motors_direction)
                 my_car.set_cam_servos_offset([cam_pan_offset, cam_tilt_offset])
-                my_car.config.write() # write config to file
-                #
                 my_car.set_cam_pan(0)
                 my_car.set_cam_tilt(0)
-                #
                 _has_saved = True
                 show_static_content()
-                draw_bottom('Saved.')
+                draw_bottom(f'saved: dir={motors_direction}, offset=[{cam_pan_offset},{cam_tilt_offset}]')
             else:
                 _has_saved = False
                 show_static_content()
@@ -504,7 +501,7 @@ def _draw_offset(obj):
         box_width=obj["box_width"])
 
 def calibrate_compass_handler():
-    global compass_offset, compass_offset_obj, on_compass_calibrating
+    global compass_offset, compass_offset_obj, on_compass_calibrating, x_min, x_max, y_min, y_max, z_min, z_max
     # value Init 
     x_min = 0
     x_max = 0
@@ -553,7 +550,14 @@ def calibrate_compass_handler():
         time.sleep(0.01)
 
 def compass_calibration():
-    global compass_offset, on_compass_calibrating
+    global compass_offset, on_compass_calibrating, x_min, x_max, y_min, y_max, z_min, z_max
+    # Initialize all global variables to ensure they can be accessed even if the calibration process is not run
+    x_min = 0
+    x_max = 0
+    y_min = 0
+    y_max = 0
+    z_min = 0
+    z_max = 0
     _has_saved = False
 
     # TODO: read from config file
@@ -566,7 +570,6 @@ def compass_calibration():
         draw_bottom('Compass config loaded successfully.')
         time.sleep(.5) # Persistence of vision
         
-        # [DEBUG] 打印读取到的配置值 
         draw_bottom(config_values)
         time.sleep(1)
         clear_bottom(line = len(config_values))
@@ -634,14 +637,23 @@ def compass_calibration():
             else:
                 return
         elif key == ' ': # space
+            if x_min == 0 and x_max == 0 and y_min == 0 and y_max == 0 and z_min == 0 and z_max == 0:
+                clear_bottom()
+                draw_bottom('No calibration data. Using default values.')
+                continue
             clear_bottom()
             _box_width = ASK_SAVE['box_width']
             if draw_ask(ASK_SAVE['content'], location=(int((CONTENT_WIDTH-_box_width)/2), 6), align='center', box_width=_box_width):
-                # TODO: save to config file
-                my_car.config.write()   # save
-                _has_saved = True
-                refresh_screen()
-                draw_bottom('Saved.')
+                try:
+                    my_car.set_compass_offset(x_min, x_max, y_min, y_max, z_min, z_max)
+                    _has_saved = True
+                    refresh_screen()
+                    draw_bottom(f'save success! compass offset: [{x_min}, {x_max}, {y_min}, {y_max}, {z_min}, {z_max}]')
+                except Exception as e:
+                    _has_saved = False
+                    refresh_screen()
+                    draw_bottom(f'compass offset save failed: {str(e)}')
+                    raise
             else:
                 _has_saved = False
                 refresh_screen()
@@ -990,11 +1002,19 @@ def grayscale_module_calibration():
             clear_bottom()
             _box_width = ASK_SAVE['box_width']
             if draw_ask(ASK_SAVE['content'], location=(int((CONTENT_WIDTH-_box_width)/2), 6), align='center', box_width=_box_width):
-                # TODO: save to config file
-                my_car.config.write()   # write() or set()
-                _has_saved = True
-                refresh_screen()
-                draw_bottom('Saved.')
+                # 保存灰度模块参考值到配置
+                try:
+                    my_car.set_line_reference(line_reference)
+                    my_car.set_cliff_reference(cliff_reference)
+                    _has_saved = True
+                    refresh_screen()
+                    draw_bottom(f'保存成功! 线参考值: {line_reference}, 悬崖参考值: {cliff_reference}')
+                except Exception as e:
+                    _has_saved = False
+                    refresh_screen()
+                    draw_bottom(f'保存失败: {str(e)}')
+                    # 重新抛出异常以便上层处理
+                    raise
             else:
                 _has_saved = False
                 refresh_screen()
