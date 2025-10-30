@@ -2,7 +2,7 @@
 # from robot_hat import I2C, fileDB
 
 from fusion_hat._config import Config
-from fusion_hat.i2c import I2C
+from fusion_hat._i2c import I2C
 import time
 from math import pi, atan2, degrees
 
@@ -94,13 +94,13 @@ class QMC6310(I2C):
             raise ValueError("field_range must be one of ['30G', '12G', '8G', '2G']")
 
         #  init
-        self._write_byte_data(0x29, 0x06)
-        self._write_byte_data(self.QMC6310_REG_CONTROL_2, self.RANGE[field_range])
-        self._write_byte_data(self.QMC6310_REG_CONTROL_1, 
+        self.write_byte_data(0x29, 0x06)
+        self.write_byte_data(self.QMC6310_REG_CONTROL_2, self.RANGE[field_range])
+        self.write_byte_data(self.QMC6310_REG_CONTROL_1, 
             self.QMC6310_VAL_MODE_NORMAL | self.QMC6310_VAL_ODR_200HZ | self.QMC6310_VAL_OSR1_8 | self.QMC6310_VAL_OSR2_8)
 
     def read_raw(self):
-        result = self._read_i2c_block_data(self.QMC6310_REG_DATA_START, 6)
+        result = self.read_i2c_block_data(self.QMC6310_REG_DATA_START, 6)
         x = convert_2_int16(result[1] << 8 | result[0])
         y = convert_2_int16(result[3] << 8 | result[2])
         z = convert_2_int16(result[5] << 8 | result[4])
