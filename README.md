@@ -67,6 +67,30 @@ sudo python3 setup.py install
 cd ~/Neo && sudo pip3 install . --break --no-deps --no-build-isolation
 cd ~/fusion-hat && sudo pip3 install . --break --no-deps --no-build-isolation
 ```
+### Pin map
+  The pin map of the Neo robot.
+  Servo:
+  - CAM_PAN_Pin : P0
+  - CAM_TILT_Pin: P1
+  
+  Motor:
+  - M1: P11 P10 
+  - M2: P9 P8
+  - M3: P7 P6
+  - M4: P5 P4
+
+  ultrasonic:
+  - Trigger: 17
+  - Echo: 4
+    
+  grayscale:
+  - L_PIN: A0
+  - R_PIN: A1
+  - M_PIN: A2
+
+  IR_Obstacle:
+  - L_PIN: 27
+  - R_PIN: 22
 
 
 ---
