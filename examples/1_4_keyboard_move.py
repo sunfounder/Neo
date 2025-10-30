@@ -3,6 +3,7 @@ from time import sleep
 import readchar     
 
 manual = '''
+-----------------------------------------------
 Press keys on keyboard to control Neo robot!
     w: Forward
     a: Turn left
@@ -13,7 +14,8 @@ Press keys on keyboard to control Neo robot!
     j: Turn head left
     l: Turn head right
     space: Stop
-    ctrl+c: Press twice to exit the program
+    ctrl+c: Exit
+-----------------------------------------------
 '''
 
 def show_info():
