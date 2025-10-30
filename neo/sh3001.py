@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import time
-from fusion_hat.i2c import I2C
+from fusion_hat._i2c import I2C
 from fusion_hat._config import Config
 
 # from filedb import fileDB
@@ -499,6 +499,7 @@ class SH3001(I2C):
         # ADCreset
         regData = 0x02
         self.mem_write(regData, self.SH3001_ADDRESS)
+
         regData = 0xC1
         self.mem_write(regData, self.SH3001_ADDRESS)
         regData = 0xC2
