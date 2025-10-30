@@ -637,18 +637,23 @@ def compass_calibration():
             else:
                 return
         elif key == ' ': # space
+            # Width of the calibration data save confirmation dialog
+            _box_width = ASK_SAVE['box_width'] 
             if x_min == 0 and x_max == 0 and y_min == 0 and y_max == 0 and z_min == 0 and z_max == 0:
                 clear_bottom()
                 draw_bottom('No calibration data. Using default values.')
+                time.sleep(.5)
+                clear_bottom()
                 continue
-            clear_bottom()
-            _box_width = ASK_SAVE['box_width']
+            
             if draw_ask(ASK_SAVE['content'], location=(int((CONTENT_WIDTH-_box_width)/2), 6), align='center', box_width=_box_width):
                 try:
                     my_car.set_compass_offset(x_min, x_max, y_min, y_max, z_min, z_max)
                     _has_saved = True
                     refresh_screen()
                     draw_bottom(f'save success! compass offset: [{x_min}, {x_max}, {y_min}, {y_max}, {z_min}, {z_max}]')
+                    time.sleep(.5)
+                    clear_bottom()
                 except Exception as e:
                     _has_saved = False
                     refresh_screen()
