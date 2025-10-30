@@ -639,14 +639,15 @@ def compass_calibration():
         elif key == ' ': # space
             # Width of the calibration data save confirmation dialog
             _box_width = ASK_SAVE['box_width'] 
-            if x_min == 0 and x_max == 0 and y_min == 0 and y_max == 0 and z_min == 0 and z_max == 0:
+            calibration_values = [x_min, x_max, y_min, y_max, z_min, z_max]
+            # if x_min == 0 and x_max == 0 and y_min == 0 and y_max == 0 and z_min == 0 and z_max == 0
+            if all(value == 0 for value in calibration_values):
                 clear_bottom()
                 draw_bottom('No calibration data. Using default values.')
                 time.sleep(.5)
                 clear_bottom()
                 continue
-            
-            if draw_ask(ASK_SAVE['content'], location=(int((CONTENT_WIDTH-_box_width)/2), 6), align='center', box_width=_box_width):
+            elif draw_ask(ASK_SAVE['content'], location=(int((CONTENT_WIDTH-_box_width)/2), 6), align='center', box_width=_box_width):
                 try:
                     my_car.set_compass_offset(x_min, x_max, y_min, y_max, z_min, z_max)
                     _has_saved = True
