@@ -553,7 +553,7 @@ def calibrate_compass_handler():
             f"compass offset: {x_min, x_max, y_min, y_max, z_min, z_max} "
         ]
         _draw_offset(compass_offset_obj)
-        time.sleep(0.01)
+        time.sleep(.01)
 
 def compass_calibration():
     global compass_offset, on_compass_calibrating, x_min, x_max, y_min, y_max, z_min, z_max
@@ -747,7 +747,7 @@ def read_grayscale_data_loop():
         except Exception as e:
             draw_bottom(f"Error: {e}")
         
-        time.sleep(0.2)  # Read data every 0.2 seconds
+        time.sleep(.2)  # Read data every 0.2 seconds
 
 def line_reference_calibrate_handler():
     global line_reference, grayscale_date, grayscale_threshold, grayscale_running_flag, grayscale_running
@@ -768,7 +768,7 @@ def line_reference_calibrate_handler():
     
     try:
         _angle = 35
-        _delay = 0.8
+        _delay = 2
         _power = 30
         
         # turn left
@@ -785,7 +785,7 @@ def line_reference_calibrate_handler():
         # stop
         my_car.stop()
         my_car.set_cam_pan(0)
-        time.sleep(0.2)
+        time.sleep(.2)
         
         # move forward
         draw_bottom('Moving right forward...')
@@ -801,7 +801,7 @@ def line_reference_calibrate_handler():
         # stop
         my_car.set_cam_pan(0)
         my_car.stop()
-        time.sleep(0.2)
+        time.sleep(.2)
 
         # line_reference
         line_reference = [
@@ -994,7 +994,7 @@ def grayscale_module_calibration():
                         _mid_val += grayscale_reading[1]
                         _right_val += grayscale_reading[2]
                         count += 1
-                        time.sleep(0.2)
+                        time.sleep(.2)
                     
                     # average
                     _left_val /= 10
