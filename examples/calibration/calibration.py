@@ -750,12 +750,12 @@ def read_grayscale_data_loop():
         time.sleep(.2)  # Read data every 0.2 seconds
 
 def line_reference_calibrate_handler():
-    global line_reference, grayscale_date, grayscale_threshold, grayscale_running_flag, grayscale_running
+    global line_reference, grayscale_date, grayscale_threshold, grayscale_running_flag
     global cliff_reference
     
     # Reset threshold
     grayscale_threshold = [
-        [4095, 0],  # [min, max]
+        [4095, 0], 
         [4095, 0],
         [4095, 0],
     ]
@@ -805,9 +805,9 @@ def line_reference_calibrate_handler():
 
         # line_reference
         line_reference = [
-            int((grayscle_threshold[0][0] + grayscle_threshold[0][1]) / 2),
-            int((grayscle_threshold[1][0] + grayscle_threshold[1][1]) / 2),
-            int((grayscle_threshold[2][0] + grayscle_threshold[2][1]) / 2),
+            int((grayscale_threshold[0][0] + grayscale_threshold[0][1]) / 2),
+            int((grayscale_threshold[1][0] + grayscale_threshold[1][1]) / 2),
+            int((grayscale_threshold[2][0] + grayscale_threshold[2][1]) / 2),
         ]
         
         if all(cliff_reference[i] < line_reference[i] for i in range(3)):
@@ -826,9 +826,53 @@ def line_reference_calibrate_handler():
     finally:
         my_car.stop()
         grayscale_running_flag = False
-        grayscale_running = False
         # wait for thread to finish
         grayscale_data_thread.join(timeout=1.0)
+
+def cliff_reference_calibrate_handler():
+    global cliff_reference, grayscale_date, grayscale_threshold, grayscale_running_flag
+    
+    try:
+        draw_bottom('Cliff reference calibrating...')
+        
+        count = 0
+        _left_val = 0
+        _mid_val = 0
+        _right_val = 0
+        
+        # collect 10 grayscale data
+        while count < 10 and grayscale_running_flag:
+            grayscale_reading, _ = my_car.read_grayscale()
+            _left_val += grayscale_reading[0]
+            _mid_val += grayscale_reading[1]
+            _right_val += grayscale_reading[2]
+            count += 1
+            time.sleep(.2)
+        
+        # average
+        _left_val /= 10
+        _mid_val /= 10
+        _right_val /= 10
+        
+        if _left_val < grayscale_threshold[0][1] and _mid_val < grayscale_threshold[1][1] and _right_val < grayscale_threshold[2][1]:
+            _left_val = int((_left_val + grayscale_threshold[0][1]) / 2)
+            _mid_val = int((_mid_val + grayscale_threshold[1][1]) / 2)
+            _right_val = int((_right_val + grayscale_threshold[2][1]) / 2)
+        
+        cliff_reference = [int(_left_val), int(_mid_val), int(_right_val)]
+        
+        # save
+        my_car.set_cliff_reference(cliff_reference)
+        
+        draw_bottom('Cliff reference calibration completed!')
+        draw_bottom(f'Cliff reference: {cliff_reference}')
+        time.sleep(2)
+        
+    except Exception as e:
+        draw_bottom(f'Cliff calibration error: {str(e)}')
+        time.sleep(1)
+    finally:
+        grayscale_running_flag = False
 
 
 
@@ -847,10 +891,10 @@ def grayscale_module_calibration_under_construction():
     key = term.inkey()
 
 def grayscale_module_calibration():
-    global grayscale_date, line_reference, cliff_reference, grayscle_extremum
+    global grayscale_date, line_reference, cliff_reference, grayscle_extremum, grayscale_running_flag
 
     _has_saved = False
-    _mode = 0   # None,line_cail,cliff_cail
+    _mode = 0   # 0-line_cail, 1-cliff_cail
     _last_mode = 0
 
 
@@ -930,17 +974,17 @@ def grayscale_module_calibration():
                                     )
                         
                         #line_reference_calibrate
-                        global grayscale_running
-                        grayscale_running = True
+                        global grayscale_running_flag
+                        grayscale_running_flag = True
                         calibration_thread = threading.Thread(target=line_reference_calibrate_handler)
                         calibration_thread.daemon = True    
                         calibration_thread.start()
                         
                         # wait for calibration thread to finish
-                        while calibration_thread.is_alive() and grayscale_running:
+                        while calibration_thread.is_alive() and grayscale_running_flag:
                             key = term.inkey(timeout=0.1)
                             if key.lower() == 'q':
-                                grayscale_running = False
+                                grayscale_running_flag = False
                                 break
                             # update screen
                             refresh_screen()
@@ -976,53 +1020,45 @@ def grayscale_module_calibration():
 
             # mode 1 : cliff reference calibration  
             elif _mode == 1:
-                draw_bottom('Cliff reference calibrating...')
+                refresh_screen()
+                draw_bottom('Cliff reference calibrating ... (press \'q\' to stop)',
+                            THEME_CHOSEN_COLOR,
+                            align='left',
+                            box_width=CONTENT_WIDTH,
+                            )
                 
-                # cliff_calibrate
-                def cliff_calibrate():
-                    global cliff_reference, grayscale_date
-                    
-                    count = 0
-                    _left_val = 0
-                    _mid_val = 0
-                    _right_val = 0
-                    
-                    # collect 10 grayscale data
-                    while count < 10:
-                        grayscale_reading, _ = my_car.read_grayscale()
-                        _left_val += grayscale_reading[0]
-                        _mid_val += grayscale_reading[1]
-                        _right_val += grayscale_reading[2]
-                        count += 1
-                        time.sleep(.2)
-                    
-                    # average
-                    _left_val /= 10
-                    _mid_val /= 10
-                    _right_val /= 10
-                    
-                    if _left_val < grayscle_threshold[0][1] and _mid_val < grayscle_threshold[1][1] and _right_val < grayscle_threshold[2][1]:
-                        _left_val = int((_left_val + grayscle_threshold[0][1]) / 2)
-                        _mid_val = int((_mid_val + grayscle_threshold[1][1]) / 2)
-                        _right_val = int((_right_val + grayscle_threshold[2][1]) / 2)
-                    
-                    return [int(_left_val), int(_mid_val), int(_right_val)]
+                # Start cliff reference calibration
+                grayscale_running_flag = True
+                calibration_thread = threading.Thread(target=cliff_reference_calibrate_handler)
+                calibration_thread.daemon = True    
+                calibration_thread.start()
                 
-                try:
-                    cliff_reference = cliff_calibrate()
-                    # save
-                    my_car.set_cliff_reference(cliff_reference)
-                    
-                    # show
+                # wait for calibration thread to finish
+                while calibration_thread.is_alive() and grayscale_running_flag:
+                    key = term.inkey(timeout=0.1)
+                    if key.lower() == 'q':
+                        grayscale_running_flag = False
+                        break
+                    # update screen
                     refresh_screen()
-                    draw_bottom('Cliff reference calibration completed!')
-                    draw_bottom(f'Cliff reference: {cliff_reference}')
-                    time.sleep(2)
-                    clear_bottom(line=2)
-                except Exception as e:
-                    draw_bottom(f'Cliff calibration error: {str(e)}')
-                    time.sleep(1)
+                    draw_bottom('Cliff reference calibrating ... (press \'q\' to stop)',
+                                THEME_CHOSEN_COLOR,
+                                align='left',
+                                box_width=CONTENT_WIDTH,
+                                )
+                
+                # wait for calibration thread to finish
+                calibration_thread.join(timeout=1.0)
+                
+                # update screen and save config
+                refresh_screen()
+                my_car.set_cliff_reference(cliff_reference)
+                refresh_screen()
+                draw_bottom('Cliff reference: ' + str(cliff_reference))
+                time.sleep(1)
+                clear_bottom(line = 1)
                 break
+        
         elif key.name == 'KEY_ESCAPE':
             clear_bottom()
             if not _has_saved:
