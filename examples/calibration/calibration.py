@@ -891,7 +891,7 @@ def grayscale_module_calibration_under_construction():
     key = term.inkey()
 
 def grayscale_module_calibration():
-    global grayscale_date, line_reference, cliff_reference, grayscle_extremum, grayscale_running_flag
+    global grayscale_date, line_reference, cliff_reference, grayscale_running_flag
 
     _has_saved = False
     _mode = 0   # 0-line_cail, 1-cliff_cail
@@ -902,11 +902,9 @@ def grayscale_module_calibration():
     try:
         line_reference = my_car.config.get('line_reference', [0]*3)
         cliff_reference = my_car.config.get('cliff_reference', [0]*3)
-        grayscle_extremum = my_car.config.get('grayscle_extremum', [[4095, 0]]*3)
         config_values = [
             f"Line reference: {line_reference}",
-            f"Cliff reference: {cliff_reference}",
-            f"Grayscale extremum: {grayscle_extremum}"
+            f"Cliff reference: {cliff_reference}"
         ]
         
         draw_bottom('Config loaded successfully.')
