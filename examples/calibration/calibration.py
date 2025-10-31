@@ -568,7 +568,7 @@ def compass_calibration():
     z_max = 0
     _has_saved = False
 
-    # TODO: read from config file
+    # read from config file
     try:
         # Get the compass offset configuration value directly from my_car.config
         compass_offset = my_car.config.get('compass_offset', [0]*6)
@@ -727,6 +727,7 @@ LINE_REF_CALI_TIPS = {
 }
 
 # Grayscale sensor data reading loop
+# TODO:在line reference calibration执行结束之后，没有关闭这个线程，导致没办法继续save操作,但是可以继续回车，需要完善
 def read_grayscale_data_loop():
     global grayscale_date, grayscale_threshold, grayscale_running_flag, line_reference
     
