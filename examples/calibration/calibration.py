@@ -861,9 +861,6 @@ def cliff_reference_calibrate_handler():
         
         cliff_reference = [int(_left_val), int(_mid_val), int(_right_val)]
         
-        # save
-        my_car.set_cliff_reference(cliff_reference)
-        
         draw_bottom('Cliff reference calibration completed!')
         draw_bottom(f'Cliff reference: {cliff_reference}')
         time.sleep(2)
@@ -871,8 +868,6 @@ def cliff_reference_calibrate_handler():
     except Exception as e:
         draw_bottom(f'Cliff calibration error: {str(e)}')
         time.sleep(1)
-    finally:
-        grayscale_running_flag = False
 
 
 def grayscale_module_calibration():
@@ -980,24 +975,19 @@ def grayscale_module_calibration():
                         # wait for calibration thread to finish
                         calibration_thread.join(timeout=1.0)
                         
-                        # update screen and save config
-                        refresh_screen()
-                        # save
-                        my_car.set_line_reference(line_reference)
 
                         # check cliff_reference
                         if not (isinstance(cliff_reference, list) and len(cliff_reference) == 3):
                             draw_bottom('Warning: Cliff reference must be a 1*3 list. Using default values.')
                             time.sleep(1)
 
-                        my_car.set_cliff_reference(cliff_reference)
-                        refresh_screen()
                         draw_bottom('Line reference: ' + str(line_reference))
-                        draw_bottom('Cliff reference: ' + str(cliff_reference))
 
+                        refresh_screen()
+                        my_car.set_line_reference(line_reference)   # save
 
                         time.sleep(1)
-                        clear_bottom(line = 2)
+                        clear_bottom()
 
                         break
 
@@ -1034,10 +1024,10 @@ def grayscale_module_calibration():
                 calibration_thread.join(timeout=1.0)
                 
                 # update screen and save config
-                refresh_screen()
                 my_car.set_cliff_reference(cliff_reference)
                 refresh_screen()
                 draw_bottom('Cliff reference: ' + str(cliff_reference))
+                
                 time.sleep(1)
                 clear_bottom(line = 1)
                 break
