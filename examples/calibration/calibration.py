@@ -1046,14 +1046,24 @@ def grayscale_module_calibration():
             _box_width = ASK_SAVE['box_width']
             if draw_ask(ASK_SAVE['content'], location=(int((CONTENT_WIDTH-_box_width)/2), 6), align='center', box_width=_box_width):
                 try:
-                    # TODO:add check _is_val_error
-                    my_car.set_line_reference(line_reference)
-                    my_car.set_cliff_reference(cliff_reference)
-                    _has_saved = True
-                    refresh_screen()
-                    draw_bottom(f'save! line_ref: {line_reference}, cliff_ref: {cliff_reference}')
-                    time.sleep(.5)
-                    clear_bottom()
+                    # add check data_validity
+                    _is_val_error = False
+                    for i in range(3):
+                        if line_reference[i] <cliff_reference[i]:
+                            _is_val_error = True
+                            break
+                    if _is_val_error:
+                        my_car.set_line_reference(line_reference)
+                        my_car.set_cliff_reference(cliff_reference)
+                        _has_saved = True
+                        refresh_screen()
+                        draw_bottom(f'save! line_ref: {line_reference}, cliff_ref: {cliff_reference}')
+                        time.sleep(.5)
+                        clear_bottom()
+                    else:
+                        draw_bottom('Note that cliff reference values shou be less than line reference values.')
+                        time.sleep(1)
+                        clear_bottom()
                 except Exception as e:
                     _has_saved = False
                     refresh_screen()
