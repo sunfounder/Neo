@@ -875,21 +875,6 @@ def cliff_reference_calibrate_handler():
         grayscale_running_flag = False
 
 
-
-def grayscale_module_calibration_under_construction():
-    print(f"{term.home}{THEME_BGROUND_COLOR}{term.clear}")
-    draw_title(TITLE_GRAYSCALE)
-    draw(["grayscale_module_calibration still under construction",
-          "press any key to back",
-            ],
-            color=LINE_REF_CALI_TIPS['color'],
-            location=LINE_REF_CALI_TIPS['location'],
-            align='center',
-            box_width=LINE_REF_CALI_TIPS['box_width'],
-            )
-    # wait for key press
-    key = term.inkey()
-
 def grayscale_module_calibration():
     global grayscale_date, line_reference, cliff_reference, grayscale_running_flag
 
