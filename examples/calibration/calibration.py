@@ -866,9 +866,6 @@ def cliff_reference_calibrate_handler():
     except Exception as e:
         draw_bottom(f'Cliff calibration error: {str(e)}')
         time.sleep(1)
-    finally:
-        # TODO:校准后会自动退出。
-        grayscale_running_flag = False
 
 '''---------Grayscale Module Calibration---------'''
 def grayscale_module_calibration():
@@ -976,14 +973,15 @@ def grayscale_module_calibration():
                         # wait for calibration thread to finish
                         calibration_thread.join(timeout=1.0)
                         
+                        # reset
+                        grayscale_running_flag = False
+                        
                         # my_car.set_line_reference(line_reference)   # save
                         refresh_screen()
                         draw_bottom('Line reference: ' + str(line_reference))
 
                         time.sleep(1)
                         clear_bottom()
-
-                        break
 
             # mode 1 : cliff reference calibration  
             elif _mode == 1:
@@ -1016,6 +1014,9 @@ def grayscale_module_calibration():
                 
                 # wait for calibration thread to finish
                 calibration_thread.join(timeout=1.0)
+                
+                # reset
+                grayscale_running_flag = False
 
                 # check cliff_reference
                 if not (isinstance(cliff_reference, list) and len(cliff_reference) == 3):
@@ -1029,7 +1030,6 @@ def grayscale_module_calibration():
                 
                 time.sleep(1)
                 clear_bottom(line = 1)
-                break
         
         elif key.name == 'KEY_ESCAPE':
             clear_bottom()
