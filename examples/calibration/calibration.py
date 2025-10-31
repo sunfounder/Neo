@@ -338,7 +338,7 @@ def motors_and_servos_calibration():
             MOTORS_OPTIONS['location'])
     
     show_static_content()
-    # TODO: read from config file
+    # read from config file
     try:
         motors_direction = my_car.config.get('motors_direction', my_car.DEFAULT_MOTORS_DIRECTION).copy()
         cam_pan_offset = my_car.config.get('servos_offset', [0.0, 0.0])[0]
@@ -446,13 +446,19 @@ def motors_and_servos_calibration():
             clear_bottom()
             _box_width = ASK_SAVE['box_width']
             if draw_ask(ASK_SAVE['content'], location=(int((CONTENT_WIDTH-_box_width)/2), 6), align='center', box_width=_box_width):
-                my_car.set_motors_direction(motors_direction)
-                my_car.set_cam_servos_offset([cam_pan_offset, cam_tilt_offset])
-                my_car.set_cam_pan(0)
-                my_car.set_cam_tilt(0)
-                _has_saved = True
-                show_static_content()
-                draw_bottom(f'saved: dir={motors_direction}, offset=[{cam_pan_offset},{cam_tilt_offset}]')
+                try:
+                    my_car.set_motors_direction(motors_direction)
+                    my_car.set_cam_servos_offset([cam_pan_offset, cam_tilt_offset])
+                    my_car.set_cam_pan(0)
+                    my_car.set_cam_tilt(0)
+                    _has_saved = True
+                    show_static_content()
+                    draw_bottom(f'saved: dir={motors_direction}, offset=[{cam_pan_offset},{cam_tilt_offset}]')
+                    time.sleep(.5)
+                    clear_bottom()
+                except Exception as e:
+                    _has_saved = False
+                    draw_bottom(f"Save failed: {str(e)}.")
             else:
                 _has_saved = False
                 show_static_content()
@@ -719,7 +725,7 @@ grayscale_reference_obj = {
 LINE_REF_CALI_TIPS = {
     'content': [
         "",
-        "Please place the Zeus Pi car in the middle of the line, ",
+        "Please place the Neo Pi car in the middle of the line, ",
         "and press [Enter] to start automatic calibration. ",
         "",
     ],
@@ -756,7 +762,7 @@ def line_reference_calibrate_handler():
     
     # tmp_date[]
     grayscle_extremum_tmp = [
-        [4095,0],  # [最大值, 最小值]
+        [4095,0],  # [min, max]
         [4095,0],
         [4095,0],
     ]
@@ -1008,18 +1014,18 @@ def grayscale_module_calibration():
             clear_bottom()
             _box_width = ASK_SAVE['box_width']
             if draw_ask(ASK_SAVE['content'], location=(int((CONTENT_WIDTH-_box_width)/2), 6), align='center', box_width=_box_width):
-                # 保存灰度模块参考值到配置
                 try:
                     my_car.set_line_reference(line_reference)
                     my_car.set_cliff_reference(cliff_reference)
                     _has_saved = True
                     refresh_screen()
-                    draw_bottom(f'保存成功! 线参考值: {line_reference}, 悬崖参考值: {cliff_reference}')
+                    draw_bottom(f'save! line_ref: {line_reference}, cliff_ref: {cliff_reference}')
+                    time.sleep(.5)
+                    clear_bottom()
                 except Exception as e:
                     _has_saved = False
                     refresh_screen()
-                    draw_bottom(f'保存失败: {str(e)}')
-                    # 重新抛出异常以便上层处理
+                    draw_bottom(f'save failed: {str(e)}')
                     raise
             else:
                 _has_saved = False
