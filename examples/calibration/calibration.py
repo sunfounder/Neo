@@ -59,7 +59,7 @@ THEME_UNCHOSEN_COLOR = term.white
 |/| └———————————┘ |\|
 
 '''
-TITLE = "ZEUS PI CALIBRATION"
+TITLE = "PI_NEOCAR CALIBRATION"
 MODE_OPTIONS = {
     "location": (2, 2),
     "content": [
@@ -672,7 +672,6 @@ def compass_calibration():
                 draw_bottom('Cancel.')
 
         # update data
-
         compass_data = my_car.read_compass()
         compass_data_obj['content'] = [
             f"compass data:",
@@ -749,6 +748,7 @@ def read_grayscale_data_loop():
         
         time.sleep(.2)  # Read data every 0.2 seconds
 
+""""-------------------line_reference_calibrate_handler-------------------"""
 def line_reference_calibrate_handler():
     global line_reference, grayscale_date, grayscale_threshold, grayscale_running_flag
     global cliff_reference
@@ -790,12 +790,12 @@ def line_reference_calibrate_handler():
         # move forward
         draw_bottom('Moving right forward...')
         my_car.set_cam_pan(_angle)
-        my_car.move(0, _power, -_power)  # 右转前进
+        my_car.move(0, _power, -_power)
         time.sleep(_delay)
         
         # move backward
         draw_bottom('Moving right backward...')
-        my_car.move(180, _power, -_power)  # 右转后退
+        my_car.move(180, _power, -_power)
         time.sleep(_delay)
         
         # stop
@@ -817,7 +817,6 @@ def line_reference_calibrate_handler():
             ]
         
         draw_bottom('Line reference calibration completed!')
-        # draw_bottom(f'Line reference: {line_reference}')
         time.sleep(1)
         
     except Exception as e:
@@ -867,8 +866,11 @@ def cliff_reference_calibrate_handler():
     except Exception as e:
         draw_bottom(f'Cliff calibration error: {str(e)}')
         time.sleep(1)
+    finally:
+        # TODO:校准后会自动退出。
+        grayscale_running_flag = False
 
-
+'''---------Grayscale Module Calibration---------'''
 def grayscale_module_calibration():
     global grayscale_date, line_reference, cliff_reference, grayscale_running_flag
 
@@ -974,7 +976,7 @@ def grayscale_module_calibration():
                         # wait for calibration thread to finish
                         calibration_thread.join(timeout=1.0)
                         
-                        my_car.set_line_reference(line_reference)   # save
+                        # my_car.set_line_reference(line_reference)   # save
                         refresh_screen()
                         draw_bottom('Line reference: ' + str(line_reference))
 
@@ -1021,7 +1023,7 @@ def grayscale_module_calibration():
                     time.sleep(1)
                 else:
                     # update screen and save config
-                    my_car.set_cliff_reference(cliff_reference)
+                    # my_car.set_cliff_reference(cliff_reference)
                     refresh_screen()
                     draw_bottom('Cliff reference: ' + str(cliff_reference))
                 
@@ -1119,7 +1121,7 @@ def loop():
 
 
 def main():
-    with term.fullscreen(), term.cbreak():
+    with term.fullscreen(), term.cbreak(), term.hidden_cursor():
         while True:
             loop()
 
