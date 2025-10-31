@@ -697,7 +697,7 @@ grayscale_date_obj = {
     'location': (2, 7),
     'color': THEME_COLOR,
     'content': [
-        f"grayscale data: {grayscale_date}",
+        f"grayscale_data: {grayscale_date}",
     ],
     'box_width': 35
 }
@@ -895,7 +895,7 @@ def grayscale_module_calibration():
 
     except Exception as e:
         draw_bottom(f"Config read failed: {str(e)}. Using default values.")
-        time.sleep(10) # Persistence of vision
+        time.sleep(2) 
         clear_bottom()
 
 
@@ -1022,9 +1022,9 @@ def grayscale_module_calibration():
                 if not (isinstance(cliff_reference, list) and len(cliff_reference) == 3):
                     draw_bottom('Warning: Cliff reference must be a 1*3 list. Using default values.')
                     time.sleep(1)
+                    cliff_reference = [0, 0, 0]  # make sure it's a valid list
                 else:
                     # update screen and save config
-                    # my_car.set_cliff_reference(cliff_reference)
                     refresh_screen()
                     draw_bottom('Cliff reference: ' + str(cliff_reference))
                 
@@ -1049,12 +1049,12 @@ def grayscale_module_calibration():
             if draw_ask(ASK_SAVE['content'], location=(int((CONTENT_WIDTH-_box_width)/2), 6), align='center', box_width=_box_width):
                 try:
                     # add check data_validity
-                    _is_val_error = False
+                    _is_valid = True
                     for i in range(3):
-                        if line_reference[i] <cliff_reference[i]:
-                            _is_val_error = True
+                        if line_reference[i] <= cliff_reference[i]:
+                            _is_valid = False
                             break
-                    if _is_val_error:
+                    if _is_valid:
                         my_car.set_line_reference(line_reference)
                         my_car.set_cliff_reference(cliff_reference)
                         _has_saved = True
@@ -1063,7 +1063,7 @@ def grayscale_module_calibration():
                         time.sleep(.5)
                         clear_bottom()
                     else:
-                        draw_bottom('Note that cliff reference values shou be less than line reference values.')
+                        draw_bottom('Note that cliff reference values should be less than line reference values.')
                         time.sleep(1)
                         clear_bottom()
                 except Exception as e:
@@ -1071,6 +1071,7 @@ def grayscale_module_calibration():
                     refresh_screen()
                     draw_bottom(f'save failed: {str(e)}')
                     raise
+
             else:
                 _has_saved = False
                 refresh_screen()
