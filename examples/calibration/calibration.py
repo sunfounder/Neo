@@ -130,8 +130,8 @@ TITLE_GRAYSCALE = "GRAYSCALE MODULE CALIBRATION "
 GRAYSCALE_OPTIONS = {
     "location": (2, 2),
     "content": [
-        "[1] Get White Line Threshold - Place on WHITE surface",
-        "[2] Get Black Line Threshold - Place on BLACK surface",
+        "[1] Get White Line Threshold",
+        "[2] Get Black Line Threshold",
     ]
 }
 GRAYSCALE_OPTIONS_TIPS = {
@@ -714,7 +714,7 @@ def read_grayscale_data_loop():
 
     try:     
         while grayscale_running_flag:
-            raw_data = temp_line_tracker.read_raw()
+            raw_data = temp_line_tracker.read(raw=True)
             if raw_data and len(raw_data) >= 3:
                 grayscale_date = raw_data
             time.sleep(0.05)
@@ -784,7 +784,7 @@ def line_tracker_calibrate_handler(line_tracker, option):
             
             for _ in range(10):
                 try:
-                    raw_data = line_tracker.read_raw()
+                    raw_data = line_tracker.read(raw=True)
                     if raw_data and len(raw_data) >= 3:
                         for j in range(3):
                             white_data[j] += raw_data[j]
@@ -820,6 +820,7 @@ def line_tracker_calibrate_handler(line_tracker, option):
                     clear_bottom()
                     draw_bottom(['Calibration completed!', f'Slopes: {slopes}', f'Offsets: {offsets}'], align='center')
                     time.sleep(2)
+                    clear_bottom()
                 except Exception as e:
                     clear_bottom()
                     draw_bottom([f'Calibration calculation failed: {str(e)}'], align='center')
@@ -845,7 +846,7 @@ def line_tracker_calibrate_handler(line_tracker, option):
             
             for _ in range(10):
                 try:
-                    raw_data = line_tracker.read_raw()
+                    raw_data = line_tracker.read(raw=True)
                     if raw_data and len(raw_data) >= 3:
                         for j in range(3):
                             black_data[j] += raw_data[j]
@@ -972,9 +973,9 @@ def grayscale_module_calibration():
         # Display collected data status
         status_lines = []
         if calibration_data['white_data'] is not None:
-            status_lines.append("White surface data: COLLECTED")
+            status_lines.append(f"White surface data: {calibration_data['white_data']}")
         if calibration_data['black_data'] is not None:
-            status_lines.append("Black surface data: COLLECTED")
+            status_lines.append(f"Black surface data: {calibration_data['black_data']}")
         
         if status_lines:
             status_obj = {
@@ -1004,16 +1005,14 @@ def grayscale_module_calibration():
             _mode = 1  # Black thread
             refresh_screen()
             continue
-        elif key.name == 'KEY_ENTER' or key in ['1', '2']:
-            # Use the selected option (1 or 2) or current mode if Enter is pressed
-            option = key if key in ['1', '2'] else str(_mode + 1)
-            
-            # Perform Line Tracker calibration with selected option
+        elif key.name == 'KEY_ENTER':
             refresh_screen()
-            draw_bottom(f'Starting Line Tracker calibration for option {option}...')
+            draw_bottom(f'Starting Line Tracker calibration for option {_mode + 1}...')
+            time.sleep(1)
+            clear_bottom()
             
             # Perform calibration with selected option
-            new_slopes, new_offsets, new_cal_data = line_tracker_calibrate_handler(line_tracker, option)
+            new_slopes, new_offsets, new_cal_data = line_tracker_calibrate_handler(line_tracker, _mode)
             
             # Update calibration data if returned
             if new_cal_data:
@@ -1024,7 +1023,7 @@ def grayscale_module_calibration():
             
             if new_slopes is not None and new_offsets is not None:
                 slopes, offsets = new_slopes, new_offsets
-                _has_saved = False  # Mark as not saved since we have new data
+                _has_saved = False  
                 refresh_screen()
                 draw_bottom('Calibration successful! Press SPACE to save.')
                 time.sleep(2)
@@ -1074,20 +1073,13 @@ def grayscale_module_calibration():
                     # Save calibration data to config
                     my_car.config['line_tracker_slopes'] = slopes
                     my_car.config['line_tracker_offsets'] = offsets
-                    
-                    # Try to save to persistent storage if possible
-                    # This depends on Neo class implementation
-                    try:
-                        my_car.save_config()
-                    except:
-                        # If save_config is not available, just update the config dict
-                        pass
-                    
+  
                     _has_saved = True
                     refresh_screen()
                     draw_bottom(f'Saved! Slopes: {slopes}, Offsets: {offsets}')
                     time.sleep(0.5)
                     clear_bottom()
+
                 except Exception as e:
                     _has_saved = False
                     refresh_screen()
@@ -1099,27 +1091,24 @@ def grayscale_module_calibration():
         
         # Update display with current grayscale data and calibration values
         try:
-            try:
-                raw_data = line_tracker.read_raw()
-                if raw_data and len(raw_data) >= 3:
-                    grayscale_date = raw_data
-            except Exception:
-                grayscale_date = [0, 0, 0]
-            
-            grayscale_date_obj['content'] = [f"Raw grayscale data: {grayscale_date}"]
-            
-            current_slopes, current_offsets = get_line_tracker_calibration_data(line_tracker)
-            if current_slopes is None:
-                current_slopes = slopes
-            if current_offsets is None:
-                current_offsets = offsets
-            
-            grayscale_reference_obj['content'] = [
-                f"Calibration slopes: {current_slopes}",
-                f"Calibration offsets: {current_offsets}",
-            ]
-        except Exception as e:
-            pass
+            raw_data = line_tracker.read(raw=True)
+            if raw_data and len(raw_data) >= 3:
+                grayscale_date = raw_data
+        except Exception:
+            grayscale_date = [0, 0, 0]
+        
+        grayscale_date_obj['content'] = [f"Raw grayscale data: {grayscale_date}"]
+        
+        current_slopes, current_offsets = get_line_tracker_calibration_data(line_tracker)
+        if current_slopes is None:
+            current_slopes = slopes
+        if current_offsets is None:
+            current_offsets = offsets
+        
+        grayscale_reference_obj['content'] = [
+            f"Calibration slopes: {current_slopes}",
+            f"Calibration offsets: {current_offsets}",
+        ]
   
         _draw_offset(grayscale_date_obj)
         _draw_offset(grayscale_reference_obj)
