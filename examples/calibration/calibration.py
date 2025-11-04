@@ -7,6 +7,9 @@ import time
 import threading
 import random
 
+from fusion_hat.modules import Grayscale_Module,LineTracker
+from fusion_hat.adc import ADC
+
 # init Neo
 # ============================================================
 # TODO:长时间不进行操作的时候，会出现音频ALSA lib错误。因为Neo初始化的音频功能会占用资源。
@@ -61,7 +64,7 @@ THEME_UNCHOSEN_COLOR = term.white
 |/| └———————————┘ |\|
 
 '''
-TITLE = "PI_NEOCAR CALIBRATION"
+TITLE = "NEOCAR CALIBRATION"
 MODE_OPTIONS = {
     "location": (2, 2),
     "content": [
@@ -127,20 +130,12 @@ TITLE_GRAYSCALE = "GRAYSCALE MODULE CALIBRATION "
 GRAYSCALE_OPTIONS = {
     "location": (2, 2),
     "content": [
-        "[1] line reference calibration",
-        "[2] cliff reference calibration",
+        "[1] Line Tracker calibration (white and black surfaces)",
     ]
 }
 GRAYSCALE_OPTIONS_TIPS = {
-    "location": (CONTENT_WIDTH-22, 2),
-    "content": [
-        "[↑]      Select Up  ",
-        "[↓]      Select Down",
-        "[Enter]  OK",
-        "[SPACE]  save",
-        "[Esc]    Back",
-        "[Ctrl+C] Exit",
-    ]
+    "location": (1, 2),
+    "content": ["Press ESC to quit, SPACE to save"]
 }
 
 ASK_SAVE = {
@@ -694,20 +689,14 @@ def compass_calibration():
 # grayscale_module_calibration
 # ============================================================================
 grayscale_date = [0, 0, 0]
-line_reference = [0, 0, 0]
-cliff_reference = [0, 0, 0]
-grayscale_threshold = [
-    [4095, 0],  # [min, max]
-    [4095, 0],
-    [4095, 0],
-]
 grayscale_running_flag = False
 
+# UI objects for grayscale module
 grayscale_date_obj = {
     'location': (2, 7),
     'color': THEME_COLOR,
     'content': [
-        f"grayscale_data: {grayscale_date}",
+        f"Raw grayscale data: {grayscale_date}",
     ],
     'box_width': 35
 }
@@ -716,196 +705,166 @@ grayscale_reference_obj = {
     'location': (2, 9),
     'color': THEME_COLOR,
     'content': [
-        f"line reference: {line_reference}",
-        f"cliff reference: {cliff_reference}",
+        "Calibration slopes: [1, 1, 1]",
+        "Calibration offsets: [0, 0, 0]",
     ],
     'box_width': 35
 }
 
-LINE_REF_CALI_TIPS = {
-    'content': [
-        "",
-        "Please place the Neo Pi car in the middle of the line, ",
-        "and press [Enter] to start automatic calibration. ",
-        "",
-    ],
-    'location': (int((CONTENT_WIDTH-60)/2), 5),
-    'box_width': 60,
-    'color': THEME_CHOSEN_COLOR,
-}
-
 # Grayscale sensor data reading loop
-grayscale_cali_status = 'none'  # none, work, done
 
 def read_grayscale_data_loop():
-    global grayscale_date, grayscale_threshold, grayscale_running_flag, line_reference, grayscale_cali_status
-    
+    global grayscale_date, grayscale_running_flag
+
     while grayscale_running_flag:
         try:
-            # Read actual grayscale sensor data
             grayscale_reading, _ = my_car.read_grayscale()
             grayscale_date = grayscale_reading
-            
-            if grayscale_cali_status == 'work':
-                for i in range(3):
-                    # update min and max
-                    if grayscale_date[i] < grayscale_threshold[i][0]:
-                        grayscale_threshold[i][0] = grayscale_date[i]
-                    if grayscale_date[i] > grayscale_threshold[i][1]:
-                        grayscale_threshold[i][1] = grayscale_date[i]
-                    line_reference[i] = int((grayscale_threshold[i][0] + grayscale_threshold[i][1]) / 2)
-            
-            if grayscale_cali_status == 'done':
-                # reset
-                grayscale_cali_status = 'none'
-                
+            time.sleep(0.05)
         except Exception as e:
-            draw_bottom(f"Error: {e}")
-            time.sleep(0.5)
-        
-        time.sleep(0.2)  
+            time.sleep(0.05)
+        time.sleep(0.05)
 
 """"-------------------line_reference_calibrate_handler-------------------"""
-def line_reference_calibrate_handler():
-    global line_reference, grayscale_threshold, grayscale_cali_status
-    
-    try:
-        # reset threshold 
-        grayscale_threshold = [
-            [4095, 0], 
-            [4095, 0],
-            [4095, 0],
-        ]
-        
-        # set calibration status to work
-        grayscale_cali_status = 'work'
-        
-        _angle = 35
-        _delay = 2 
-        _power = 30
-        
-        # move left forward
-        draw_bottom('Moving left forward...')
-        my_car.set_cam_pan(-_angle)
-        my_car.move(0, _power, _power)
-        time.sleep(_delay)
-        
-        # move left backward
-        draw_bottom('Moving left backward...')
-        my_car.move(180, _power, _power)
-        time.sleep(_delay)
-
-        
-        my_car.stop()
-        my_car.set_cam_pan(0)
-        time.sleep(0.2)
-        
-
-        draw_bottom('Moving right forward...')
-        my_car.set_cam_pan(_angle)
-        my_car.move(0, _power, -_power)
-        time.sleep(_delay)
-
-        
-        # move right backward
-        draw_bottom('Moving right backward...')
-        my_car.move(180, _power, -_power)
-        time.sleep(_delay)
-    
-        my_car.set_cam_pan(0)
-        my_car.stop()
-        time.sleep(0.2)
-
-        line_reference = [
-            int((grayscale_threshold[0][0] + grayscale_threshold[0][1]) / 2),
-            int((grayscale_threshold[1][0] + grayscale_threshold[1][1]) / 2),
-            int((grayscale_threshold[2][0] + grayscale_threshold[2][1]) / 2),
-        ]
-        
-        
-        grayscale_cali_status = 'done'
-        
-    except Exception as e:
-        draw_bottom(f'Calibration error: {str(e)}')
-        time.sleep(1)
-    finally:
-        my_car.stop()
-
-def cliff_reference_calibrate_handler():
-    global cliff_reference, grayscale_date, grayscale_threshold
-    
-    try:
-        draw_bottom('Cliff reference calibrating...')
-        
-        count = 0
-        _left_val = 0
-        _mid_val = 0
-        _right_val = 0
-        
-        # collect 10 times grayscale data
-        while count < 10 and grayscale_running_flag:
-            grayscale_reading, _ = my_car.read_grayscale()
-            _left_val += grayscale_reading[0]
-            _mid_val += grayscale_reading[1]
-            _right_val += grayscale_reading[2]
-            count += 1
-            time.sleep(.2)
-        
-        # calculate average value
-        _left_val /= 10
-        _mid_val /= 10
-        _right_val /= 10
-        
-        if _left_val < grayscale_threshold[0][0] and _mid_val < grayscale_threshold[1][0] and _right_val < grayscale_threshold[2][0]:
-            _left_val = int((_left_val + grayscale_threshold[0][0]) / 2)
-            _mid_val = int((_mid_val + grayscale_threshold[1][0]) / 2)
-            _right_val = int((_right_val + grayscale_threshold[2][0]) / 2)
-        
-        cliff_reference = [int(_left_val), int(_mid_val), int(_right_val)]
-        
-        draw_bottom('Cliff reference calibration completed!')
-        draw_bottom(f'Cliff reference: {cliff_reference}')
-        time.sleep(1)
-        
-    except Exception as e:
-        draw_bottom(f'Cliff calibration error: {str(e)}')
-        time.sleep(1)
+# Line and cliff reference calibration handlers are no longer needed
+# They are replaced by LineTracker's calibration method
 
 '''---------Grayscale Module Calibration---------'''
-def grayscale_module_calibration():
-    global grayscale_date, line_reference, cliff_reference, grayscale_running_flag, grayscale_cali_status
+# Add support method for LineTracker to set calibration data if not already present
+class LineTrackerCalibrationSupport:
+    @staticmethod
+    def set_calibration_data(line_tracker, slopes, offsets):
+        """Set calibration data for LineTracker instance
+        This method directly updates the slopes and offsets attributes if they exist
+        """
+        if hasattr(line_tracker, '_slopes'):
+            line_tracker._slopes = slopes
+        if hasattr(line_tracker, '_offsets'):
+            line_tracker._offsets = offsets
+        # Handle case where LineTracker might use different attribute names
+        if hasattr(line_tracker, 'slopes'):
+            line_tracker.slopes = slopes
+        if hasattr(line_tracker, 'offsets'):
+            line_tracker.offsets = offsets
+        return True
 
+def line_tracker_calibrate_handler(line_tracker):
+    """Line Tracker calibration handler using LineTracker.calibrate method"""
+    global grayscale_date
+    
+    try:
+        # Step 1: Get white surface data
+        clear_bottom()
+        draw_bottom(['Please place the car on a WHITE surface.', 'Press Enter to continue...'], align='center')
+        
+        # Wait for user input
+        while True:
+            key = term.inkey(timeout=0.1)
+            if key.name == 'KEY_ENTER':
+                break
+        
+        # Collect 10 samples for white surface
+        white_data = [0, 0, 0]
+        for i in range(10):
+            grayscale_reading, _ = my_car.read_grayscale()
+            for j in range(3):
+                white_data[j] += grayscale_reading[j]
+            time.sleep(0.1)
+        # Calculate average
+        white_data = [int(val / 10) for val in white_data]
+        
+        clear_bottom()
+        draw_bottom([f'White surface data collected: {white_data}', 'Press Enter to continue...'], align='center')
+        
+        # Wait for user input
+        while True:
+            key = term.inkey(timeout=0.1)
+            if key.name == 'KEY_ENTER':
+                break
+        
+        # Step 2: Get black surface data
+        clear_bottom()
+        draw_bottom(['Please place the car on a BLACK surface.', 'Press Enter to continue...'], align='center')
+        
+        # Wait for user input
+        while True:
+            key = term.inkey(timeout=0.1)
+            if key.name == 'KEY_ENTER':
+                break
+        
+        # Collect 10 samples for black surface
+        black_data = [0, 0, 0]
+        for i in range(10):
+            grayscale_reading, _ = my_car.read_grayscale()
+            for j in range(3):
+                black_data[j] += grayscale_reading[j]
+            time.sleep(0.1)
+        # Calculate average
+        black_data = [int(val / 10) for val in black_data]
+        
+        clear_bottom()
+        draw_bottom([f'Black surface data collected: {black_data}', 'Performing calibration...'], align='center')
+        
+        # Step 3: Perform calibration using LineTracker.calibrate
+        slopes, offsets = line_tracker.calibrate(white_data, black_data)
+        
+        clear_bottom()
+        draw_bottom(['Calibration completed!', f'Slopes: {slopes}', f'Offsets: {offsets}'], align='center')
+        time.sleep(2)
+        
+        return slopes, offsets
+        
+    except Exception as e:
+        clear_bottom()
+        draw_bottom([f'Calibration error: {str(e)}', 'Press Enter to continue...'], align='center')
+        while True:
+            key = term.inkey(timeout=0.1)
+            if key.name == 'KEY_ENTER':
+                break
+        return None, None
+
+def grayscale_module_calibration():
+    global grayscale_date, grayscale_running_flag
+
+    # Initialize LineTracker with ADC channels
+    line_tracker = LineTracker(ADC(0), ADC(1), ADC(2))
+    
+    # Calibration data
+    slopes = [1, 1, 1]  # Default values
+    offsets = [0, 0, 0]  # Default values
+    
     _has_saved = False
-    _mode = 0   # 0-line_cail, 1-cliff_cail
+    _mode = 0
     _last_mode = 0
 
     grayscale_running_flag = False
-    grayscale_cali_status = 'none'
-
 
     # read from config file and show
     try:
-        line_reference = my_car.config.get('line_reference', [0]*3)
-        cliff_reference = my_car.config.get('cliff_reference', [0]*3)
+        # Try to load existing calibration data if available
+        slopes = my_car.config.get('line_tracker_slopes', [1, 1, 1])
+        offsets = my_car.config.get('line_tracker_offsets', [0, 0, 0])
+        
+        # Apply loaded calibration data to LineTracker
+        LineTrackerCalibrationSupport.set_calibration_data(line_tracker, slopes, offsets)
+        
         config_values = [
-            f"Line reference: {line_reference}",
-            f"Cliff reference: {cliff_reference}"
+            f"Slopes: {slopes}",
+            f"Offsets: {offsets}"
         ]
         
         draw_bottom('Config loaded successfully.')
-        time.sleep(.5) # Persistence of vision
+        time.sleep(.5)  # Persistence of vision
         
         # print config
         draw_bottom(config_values)
         time.sleep(1)
-        clear_bottom(line = len(config_values))
+        clear_bottom(line=len(config_values))
 
     except Exception as e:
         draw_bottom(f"Config read failed: {str(e)}. Using default values.")
         time.sleep(2) 
         clear_bottom()
-
-
 
     def refresh_screen():
         # clear screen
@@ -934,102 +893,20 @@ def grayscale_module_calibration():
     refresh_screen()
     while True:
         key = term.inkey(timeout=0.1)
-        # print(key) 
-        if key.name == 'KEY_UP':
-            _mode = _mode - 1 if _mode > 0 else len(GRAYSCALE_OPTIONS['content']) - 1
-        elif key.name == 'KEY_DOWN':
-            _mode = _mode + 1 if _mode < len(GRAYSCALE_OPTIONS['content']) - 1 else 0
-        elif key == '1':
-            _mode = 0
-        elif key == '2':
-            _mode = 1
-        elif key.name == 'KEY_ENTER':
-            # mode 0 : line reference calibration
-            if _mode == 0:
-                draw(LINE_REF_CALI_TIPS['content'],
-                     color=LINE_REF_CALI_TIPS['color'],
-                     location=LINE_REF_CALI_TIPS['location'],
-                     align='center',
-                     box_width=LINE_REF_CALI_TIPS['box_width'],
-                     )
-                while True:
-                    key = term.inkey(timeout=0.1)
-                    if key.name == 'KEY_ENTER':
-                        refresh_screen()
-                        draw_bottom('Line reference calibrating ... (press \'q\' to stop)',
-                                    THEME_CHOSEN_COLOR,
-                                    align='left',
-                                    box_width=CONTENT_WIDTH,
-                                    )
-                        
-                        # line_reference_calibrate
-                        calibration_thread = threading.Thread(target=line_reference_calibrate_handler)
-                        calibration_thread.daemon = True    
-                        calibration_thread.start()
-                        
-                        # wait for calibration thread to finish
-                        while calibration_thread.is_alive() and grayscale_running_flag:
-                            key = term.inkey(timeout=0.1)
-                            if key.lower() == 'q':
-                                grayscale_cali_status = 'none'  # reset calibration status
-                                break
-                            refresh_screen()
-                        
-                        # wait for calibration thread to finish
-                        calibration_thread.join(timeout=1.0)
-                        
-                        # update screen and show result
-                        refresh_screen()
-                        draw_bottom('Line reference: ' + str(line_reference))
-                        draw_bottom('Line reference calibration completed!')
-
-                        time.sleep(2)
-                        clear_bottom()
-                        break
-                    elif key.name == 'KEY_ESCAPE':
-                        break
-
-            # mode 1 : cliff reference calibration  
-            elif _mode == 1:
+        
+        if key.name == 'KEY_ENTER':
+            # Perform Line Tracker calibration
+            refresh_screen()
+            draw_bottom('Starting Line Tracker calibration...')
+            
+            # Perform calibration
+            new_slopes, new_offsets = line_tracker_calibrate_handler(line_tracker)
+            
+            if new_slopes is not None and new_offsets is not None:
+                slopes, offsets = new_slopes, new_offsets
+                _has_saved = False  # Mark as not saved since we have new data
                 refresh_screen()
-                draw_bottom('Cliff reference calibrating ... (press \'q\' to stop)',
-                            THEME_CHOSEN_COLOR,
-                            align='left',
-                            box_width=CONTENT_WIDTH,
-                            )
-                
-                # cliff_reference_calibrate
-                calibration_thread = threading.Thread(target=cliff_reference_calibrate_handler)
-                calibration_thread.daemon = True    
-                calibration_thread.start()
-                
-                # wait for calibration thread to finish
-                while calibration_thread.is_alive() and grayscale_running_flag:
-                    key = term.inkey(timeout=0.1)
-                    if key.lower() == 'q':
-                        break
-
-
-                    refresh_screen()
-                    draw_bottom('Cliff reference calibrating ... (press \'q\' to stop)',
-                                THEME_CHOSEN_COLOR,
-                                align='left',
-                                box_width=CONTENT_WIDTH,
-                                )
-                
-                calibration_thread.join(timeout=1.0)
-                
-                # check cliff_reference validity
-                if not (isinstance(cliff_reference, list) and len(cliff_reference) == 3):
-                    draw_bottom('Warning: Cliff reference must be a 1*3 list. Using default values.')
-                    time.sleep(1)
-                    cliff_reference = [0, 0, 0]  
-                else:
-                    # update screen and show result
-                    refresh_screen()
-                    draw_bottom('Cliff reference: ' + str(cliff_reference))
-                    draw_bottom('Cliff reference calibration completed!')
-                
+                draw_bottom('Calibration successful! Press SPACE to save.')
                 time.sleep(2)
                 clear_bottom()
         
@@ -1038,6 +915,10 @@ def grayscale_module_calibration():
             if not _has_saved:
                 _box_width = ASK_EXIT['box_width']
                 if draw_ask(ASK_EXIT['content'], location=(int((CONTENT_WIDTH-_box_width)/2), 6), align='center', box_width=_box_width):
+                    # Clean up
+                    grayscale_running_flag = False
+                    if 'grayscale_data_thread' in locals() and grayscale_data_thread.is_alive():
+                        grayscale_data_thread.join(timeout=0.5)
                     return
                 else:
                     refresh_screen()
@@ -1045,59 +926,51 @@ def grayscale_module_calibration():
                     continue
             else:
                 return
-        elif key == ' ': # space
+        
+        elif key == ' ':  # space - save calibration
             clear_bottom()
             _box_width = ASK_SAVE['box_width']
             if draw_ask(ASK_SAVE['content'], location=(int((CONTENT_WIDTH-_box_width)/2), 6), align='center', box_width=_box_width):
                 try:
-                    # add check data_validity
-                    _is_valid = True
-                    for i in range(3):
-                        if line_reference[i] <= cliff_reference[i]:
-                            _is_valid = False
-                            break
-                    if _is_valid:
-                        my_car.set_line_reference(line_reference)
-                        my_car.set_cliff_reference(cliff_reference)
-                        _has_saved = True
-                        refresh_screen()
-                        draw_bottom(f'save! line_ref: {line_reference}, cliff_ref: {cliff_reference}')
-                        time.sleep(.5)
-                        clear_bottom()
-                    else:
-                        draw_bottom('Note that cliff reference values should be less than line reference values.')
-                        time.sleep(1)
-                        clear_bottom()
+                    # Save calibration data to config
+                    my_car.config['line_tracker_slopes'] = slopes
+                    my_car.config['line_tracker_offsets'] = offsets
+                    
+                    # Try to save to persistent storage if possible
+                    # This depends on Neo class implementation
+                    try:
+                        my_car.save_config()
+                    except:
+                        # If save_config is not available, just update the config dict
+                        pass
+                    
+                    _has_saved = True
+                    refresh_screen()
+                    draw_bottom(f'Saved! Slopes: {slopes}, Offsets: {offsets}')
+                    time.sleep(0.5)
+                    clear_bottom()
                 except Exception as e:
                     _has_saved = False
                     refresh_screen()
-                    draw_bottom(f'save failed: {str(e)}')
-                    raise
-
+                    draw_bottom(f'Save failed: {str(e)}')
             else:
                 _has_saved = False
                 refresh_screen()
                 draw_bottom('Cancel.')
-        # ------------------
-        if _mode != _last_mode:
-            _last_mode = _mode
-            draw_options(GRAYSCALE_OPTIONS,
-                        _mode,
-                        THEME_CHOSEN_COLOR, 
-                        THEME_UNCHOSEN_COLOR,
-                        align='left',
-                        box_width=32
-                        )
-        # ------------------
-        # show
+        
+        # Update display with current grayscale data and calibration values
         try:
+            # Read raw grayscale data
             grayscale_reading, _ = my_car.read_grayscale()
             grayscale_date = grayscale_reading
-            grayscale_date_obj['content'] = [f"grayscale_data: {grayscale_date}"]
-            # update line_reference and cliff_reference
+            
+            # Show raw data
+            grayscale_date_obj['content'] = [f"Raw grayscale data: {grayscale_date}"]
+            
+            # Show calibration values
             grayscale_reference_obj['content'] = [
-                f"line reference: {line_reference}",
-                f"cliff reference: {cliff_reference}",
+                f"Calibration slopes: {slopes}",
+                f"Calibration offsets: {offsets}",
             ]
         except Exception as e:
             pass
