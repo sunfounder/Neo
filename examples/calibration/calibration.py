@@ -710,20 +710,16 @@ grayscale_reference_obj = {
 # Grayscale sensor data reading loop
 def read_grayscale_data_loop():
     global grayscale_date, grayscale_running_flag
+    temp_line_tracker = LineTracker(ADC(0), ADC(1), ADC(2))
 
-    try:
-        temp_line_tracker = LineTracker(ADC(0), ADC(1), ADC(2))
-        
+    try:     
         while grayscale_running_flag:
-            try:
-                raw_data = temp_line_tracker.read_raw()
-                if raw_data and len(raw_data) >= 3:
-                    grayscale_date = raw_data
-                time.sleep(0.05)
-            except Exception as e:
-                time.sleep(0.05)
+            raw_data = temp_line_tracker.read_raw()
+            if raw_data and len(raw_data) >= 3:
+                grayscale_date = raw_data
+            time.sleep(0.05)
     except Exception as e:
-        # 初始化失败时设置默认值
+        draw_bottom(f'grayscale sensor read failed: {str(e)}')
         grayscale_date = [0, 0, 0]
 
 '''---------Grayscale Module Calibration---------'''
@@ -739,15 +735,12 @@ def set_line_tracker_calibration_data(line_tracker, slopes, offsets):
     return True
 
 def get_line_tracker_calibration_data(line_tracker):
-    """获取当前的校准数据"""
-    # 尝试获取slopes值
     slopes = None
     for attr_name in ['_slopes', 'slopes']:
         if hasattr(line_tracker, attr_name):
             slopes = getattr(line_tracker, attr_name)
             break
     
-    # 尝试获取offsets值
     offsets = None
     for attr_name in ['_offsets', 'offsets']:
         if hasattr(line_tracker, attr_name):
@@ -762,7 +755,6 @@ def line_tracker_calibrate_handler(line_tracker, option):
     offsets = None
     calibration_data = {}
     
-    # 使用函数属性存储校准数据，确保两次校准过程可以共享数据
     if not hasattr(line_tracker_calibrate_handler, '_calibration_data'):
         line_tracker_calibrate_handler._calibration_data = {
             'white_data': None,
@@ -775,6 +767,8 @@ def line_tracker_calibrate_handler(line_tracker, option):
         if option == '1':  # white surface
             clear_bottom()
             draw_bottom(['Please place the car on a WHITE surface.', 'Press Enter to continue...'], align='center')
+            time.sleep(.5)
+            clear_bottom()
             
             while True:
                 key = term.inkey(timeout=0.1)
@@ -785,6 +779,8 @@ def line_tracker_calibrate_handler(line_tracker, option):
             white_data = [0, 0, 0]
             clear_bottom()
             draw_bottom(['Collecting white surface data...'], align='center')
+            time.sleep(.5)
+            clear_bottom()
             
             for _ in range(10):
                 try:
@@ -798,10 +794,11 @@ def line_tracker_calibrate_handler(line_tracker, option):
             
             white_data = [int(val / 10) for val in white_data]
             calibration_data['white_data'] = white_data
-            existing_data['white_data'] = white_data  # 更新静态存储
+            existing_data['white_data'] = white_data
             
-            clear_bottom()
             draw_bottom([f'White surface data: {white_data}', 'Press Enter to continue...'], align='center')
+            time.sleep(.5)
+            clear_bottom()
 
             while True:
                 key = term.inkey(timeout=0.1)
@@ -809,28 +806,30 @@ def line_tracker_calibrate_handler(line_tracker, option):
                     break
             
             # check if black data is also collected
-                if existing_data['black_data'] is not None:
-                    clear_bottom()
-                    draw_bottom(['Both surfaces collected!', 'Performing calibration...'], align='center')
+            if existing_data['black_data'] is not None:
+                clear_bottom()
+                draw_bottom(['Both surfaces collected!', 'Performing calibration...'], align='center')
+                time.sleep(.5)
+                clear_bottom()
+                
+                try:
+                    slopes, offsets = line_tracker.calibrate(existing_data['white_data'], existing_data['black_data'])
                     
-                    try:
-                        # 执行校准计算
-                        slopes, offsets = line_tracker.calibrate(existing_data['white_data'], existing_data['black_data'])
-                        
-                        # 应用校准数据到LineTracker
-                        set_line_tracker_calibration_data(line_tracker, slopes, offsets)
-                        
-                        clear_bottom()
-                        draw_bottom(['Calibration completed!', f'Slopes: {slopes}', f'Offsets: {offsets}'], align='center')
-                        time.sleep(2)
-                    except Exception as e:
-                        clear_bottom()
-                        draw_bottom([f'Calibration calculation failed: {str(e)}'], align='center')
-                        time.sleep(2)
+                    set_line_tracker_calibration_data(line_tracker, slopes, offsets)
+                    
+                    clear_bottom()
+                    draw_bottom(['Calibration completed!', f'Slopes: {slopes}', f'Offsets: {offsets}'], align='center')
+                    time.sleep(2)
+                except Exception as e:
+                    clear_bottom()
+                    draw_bottom([f'Calibration calculation failed: {str(e)}'], align='center')
+                    time.sleep(2)
         
         elif option == '2':  # black surface
             clear_bottom()
             draw_bottom(['Please place the car on a BLACK surface.', 'Press Enter to continue...'], align='center')
+            time.sleep(.5)
+            clear_bottom()
             
             while True:
                 key = term.inkey(timeout=0.1)
@@ -841,6 +840,8 @@ def line_tracker_calibrate_handler(line_tracker, option):
             black_data = [0, 0, 0]
             clear_bottom()
             draw_bottom(['Collecting black surface data...'], align='center')
+            time.sleep(.5)
+            clear_bottom()
             
             for _ in range(10):
                 try:
@@ -870,21 +871,23 @@ def line_tracker_calibrate_handler(line_tracker, option):
             if existing_data['white_data'] is not None:
                 clear_bottom()
                 draw_bottom(['Both surfaces collected!', 'Performing calibration...'], align='center')
+                time.sleep(.5)
+                clear_bottom()
                 
                 try:
-                    # 执行校准计算
                     slopes, offsets = line_tracker.calibrate(existing_data['white_data'], existing_data['black_data'])
                     
-                    # 应用校准数据到LineTracker
                     set_line_tracker_calibration_data(line_tracker, slopes, offsets)
                     
                     clear_bottom()
                     draw_bottom(['Calibration completed!', f'Slopes: {slopes}', f'Offsets: {offsets}'], align='center')
-                    time.sleep(2)
+                    time.sleep(.5)
+                    clear_bottom()
                 except Exception as e:
                     clear_bottom()
                     draw_bottom([f'Calibration calculation failed: {str(e)}'], align='center')
-                    time.sleep(2)
+                    time.sleep(1)
+                    clear_bottom()
         
     except Exception as e:
         clear_bottom()
@@ -899,6 +902,7 @@ def line_tracker_calibrate_handler(line_tracker, option):
 
 def grayscale_module_calibration():
     global grayscale_date, grayscale_running_flag
+    global line_tracker
 
     # Initialize LineTracker with ADC channels
     line_tracker = LineTracker(ADC(0), ADC(1), ADC(2))
@@ -935,6 +939,7 @@ def grayscale_module_calibration():
         
         draw_bottom('Config loaded successfully.')
         time.sleep(.5)  # Persistence of vision
+        clear_bottom()
         
         # print config
         draw_bottom(config_values)
@@ -1027,12 +1032,22 @@ def grayscale_module_calibration():
             else:
                 # Update screen to show new data collection status even if calibration not complete
                 refresh_screen()
+                # Update grayscale_reference_obj with new calibration data if available
+                if new_slopes is not None and new_offsets is not None:
+                    grayscale_reference_obj['content'] = [
+                        f"Calibration slopes: {new_slopes}",
+                        f"Calibration offsets: {new_offsets}"
+                    ]
+                
                 if calibration_data['white_data'] is not None and calibration_data['black_data'] is not None:
                     draw_bottom('Both surfaces collected! Ready for final calibration.')
                 else:
                     draw_bottom('Data collection in progress. Collect both surfaces.')
                 time.sleep(1)
                 clear_bottom()
+                
+                # Force redraw of calibration data
+                _draw_offset(grayscale_reference_obj)
         
         elif key.name == 'KEY_ESCAPE':
             clear_bottom()
@@ -1084,26 +1099,15 @@ def grayscale_module_calibration():
         
         # Update display with current grayscale data and calibration values
         try:
-            # 优先使用LineTracker的read_raw方法读取灰度数据
             try:
                 raw_data = line_tracker.read_raw()
                 if raw_data and len(raw_data) >= 3:
                     grayscale_date = raw_data
-                else:
-                    # 回退方案：使用my_car读取灰度数据
-                    try:
-                        grayscale_reading, _ = my_car.read_grayscale()
-                        grayscale_date = grayscale_reading
-                    except:
-                        grayscale_date = [0, 0, 0]
             except Exception:
-                # 出错时使用默认值
                 grayscale_date = [0, 0, 0]
             
-            # 显示原始数据
             grayscale_date_obj['content'] = [f"Raw grayscale data: {grayscale_date}"]
             
-            # 获取当前LineTracker的校准数据并显示
             current_slopes, current_offsets = get_line_tracker_calibration_data(line_tracker)
             if current_slopes is None:
                 current_slopes = slopes
@@ -1115,7 +1119,6 @@ def grayscale_module_calibration():
                 f"Calibration offsets: {current_offsets}",
             ]
         except Exception as e:
-            # 出错时保持上次数据不变
             pass
   
         _draw_offset(grayscale_date_obj)
