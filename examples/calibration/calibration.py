@@ -637,7 +637,7 @@ def compass_calibration():
             if not _has_saved:
                 _box_width = ASK_EXIT['box_width']
                 if draw_ask(ASK_EXIT['content'], location=(int((CONTENT_WIDTH-_box_width)/2), 6), align='center', box_width=_box_width):
-                    # 清理资源
+
                     grayscale_running_flag = False
                     if 'grayscale_data_thread' in locals() and grayscale_data_thread.is_alive():
                         grayscale_data_thread.join(timeout=0.5)
@@ -729,18 +729,16 @@ def read_grayscale_data_loop():
         time.sleep(0.05)
 
 '''---------Grayscale Module Calibration---------'''
-class LineTrackerCalibrationSupport:
-    @staticmethod
-    def set_calibration_data(line_tracker, slopes, offsets):
-        if hasattr(line_tracker, '_slopes'):
-            line_tracker._slopes = slopes
-        if hasattr(line_tracker, '_offsets'):
-            line_tracker._offsets = offsets
-        if hasattr(line_tracker, 'slopes'):
-            line_tracker.slopes = slopes
-        if hasattr(line_tracker, 'offsets'):
-            line_tracker.offsets = offsets
-        return True
+def set_line_tracker_calibration_data(line_tracker, slopes, offsets):
+    if hasattr(line_tracker, '_slopes'):
+        line_tracker._slopes = slopes
+    if hasattr(line_tracker, 'slopes'):
+        line_tracker.slopes = slopes
+    if hasattr(line_tracker, '_offsets'):
+        line_tracker._offsets = offsets
+    if hasattr(line_tracker, 'offsets'):
+        line_tracker.offsets = offsets
+    return True
 
 def line_tracker_calibrate_handler(line_tracker, option):
     
