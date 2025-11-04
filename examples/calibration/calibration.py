@@ -792,13 +792,12 @@ def line_tracker_calibrate_handler(line_tracker, option):
             existing_data['white_data'] = white_data
             
             clear_bottom()
-            draw_bottom([f'White surface data: {white_data}', 'Press Enter to continue...'], align='center')
-            time.sleep(.5)
-            clear_bottom()
+            draw_bottom([f'White surface data: {white_data}', 'Press Enter to continue...'], align='center')           
  
             while True:
                 key = term.inkey(timeout=0.1)
                 if key.name == 'KEY_ENTER':
+                    clear_bottom(line=2)
                     break
             
             if existing_data['black_data'] is not None:
@@ -854,6 +853,7 @@ def line_tracker_calibrate_handler(line_tracker, option):
             while True:
                 key = term.inkey(timeout=0.1)
                 if key.name == 'KEY_ENTER':
+                    clear_bottom(line=2)
                     break
             
             if existing_data['white_data'] is not None:
@@ -881,6 +881,7 @@ def line_tracker_calibrate_handler(line_tracker, option):
         while True:
             key = term.inkey(timeout=0.1)
             if key.name == 'KEY_ENTER':
+                clear_bottom(line=2)
                 break
     
     clear_bottom()
