@@ -722,7 +722,6 @@ def read_grayscale_data_loop():
         draw_bottom(f'grayscale sensor read failed: {str(e)}')
         grayscale_date = [0, 0, 0]
 
-'''---------Grayscale Module Calibration---------'''
 def set_line_tracker_calibration_data(line_tracker, slopes, offsets):
     if hasattr(line_tracker, '_slopes'):
         line_tracker._slopes = slopes
@@ -764,23 +763,19 @@ def line_tracker_calibrate_handler(line_tracker, option):
     existing_data = line_tracker_calibrate_handler._calibration_data
     
     try:
-        if option == '1':  # white surface
+        if option == 1:  # white surface
             clear_bottom()
             draw_bottom(['Please place the car on a WHITE surface.', 'Press Enter to continue...'], align='center')
-            time.sleep(.5)
-            clear_bottom()
-            
+
             while True:
                 key = term.inkey(timeout=0.1)
                 if key.name == 'KEY_ENTER':
+                    clear_bottom(line=2)
                     break
-            
-            # white surface
+
             white_data = [0, 0, 0]
             clear_bottom()
             draw_bottom(['Collecting white surface data...'], align='center')
-            time.sleep(.5)
-            clear_bottom()
             
             for _ in range(10):
                 try:
@@ -788,61 +783,56 @@ def line_tracker_calibrate_handler(line_tracker, option):
                     if raw_data and len(raw_data) >= 3:
                         for j in range(3):
                             white_data[j] += raw_data[j]
-                except Exception:
-                    pass
+                except Exception as e:
+                    raise Exception(f'Grayscale sensor read failed: {str(e)}')
                 time.sleep(0.1)
             
             white_data = [int(val / 10) for val in white_data]
             calibration_data['white_data'] = white_data
             existing_data['white_data'] = white_data
             
+            clear_bottom()
             draw_bottom([f'White surface data: {white_data}', 'Press Enter to continue...'], align='center')
             time.sleep(.5)
             clear_bottom()
-
+ 
             while True:
                 key = term.inkey(timeout=0.1)
                 if key.name == 'KEY_ENTER':
                     break
             
-            # check if black data is also collected
             if existing_data['black_data'] is not None:
                 clear_bottom()
                 draw_bottom(['Both surfaces collected!', 'Performing calibration...'], align='center')
                 time.sleep(.5)
-                clear_bottom()
                 
                 try:
                     slopes, offsets = line_tracker.calibrate(existing_data['white_data'], existing_data['black_data'])
-                    
+
                     set_line_tracker_calibration_data(line_tracker, slopes, offsets)
                     
                     clear_bottom()
                     draw_bottom(['Calibration completed!', f'Slopes: {slopes}', f'Offsets: {offsets}'], align='center')
-                    time.sleep(2)
-                    clear_bottom()
+                    time.sleep(1)  
+                    
                 except Exception as e:
                     clear_bottom()
                     draw_bottom([f'Calibration calculation failed: {str(e)}'], align='center')
-                    time.sleep(2)
+                    time.sleep(1)
         
-        elif option == '2':  # black surface
+        elif option == 2:  # black surface
             clear_bottom()
             draw_bottom(['Please place the car on a BLACK surface.', 'Press Enter to continue...'], align='center')
-            time.sleep(.5)
-            clear_bottom()
             
             while True:
                 key = term.inkey(timeout=0.1)
                 if key.name == 'KEY_ENTER':
+                    clear_bottom(line=2)
                     break
             
-            # read black surface data
             black_data = [0, 0, 0]
             clear_bottom()
             draw_bottom(['Collecting black surface data...'], align='center')
-            time.sleep(.5)
-            clear_bottom()
             
             for _ in range(10):
                 try:
@@ -854,26 +844,22 @@ def line_tracker_calibrate_handler(line_tracker, option):
                     pass
                 time.sleep(0.1)
             
-            # average the data
             black_data = [int(val / 10) for val in black_data]
             calibration_data['black_data'] = black_data
-            existing_data['black_data'] = black_data  # update
+            existing_data['black_data'] = black_data
             
             clear_bottom()
             draw_bottom([f'Black surface data: {black_data}', 'Press Enter to continue...'], align='center')
             
-            # wait 
             while True:
                 key = term.inkey(timeout=0.1)
                 if key.name == 'KEY_ENTER':
                     break
             
-            # check if white surface data is also collected
             if existing_data['white_data'] is not None:
                 clear_bottom()
                 draw_bottom(['Both surfaces collected!', 'Performing calibration...'], align='center')
                 time.sleep(.5)
-                clear_bottom()
                 
                 try:
                     slopes, offsets = line_tracker.calibrate(existing_data['white_data'], existing_data['black_data'])
@@ -882,13 +868,12 @@ def line_tracker_calibrate_handler(line_tracker, option):
                     
                     clear_bottom()
                     draw_bottom(['Calibration completed!', f'Slopes: {slopes}', f'Offsets: {offsets}'], align='center')
-                    time.sleep(.5)
-                    clear_bottom()
+                    time.sleep(1) 
+                    
                 except Exception as e:
                     clear_bottom()
                     draw_bottom([f'Calibration calculation failed: {str(e)}'], align='center')
                     time.sleep(1)
-                    clear_bottom()
         
     except Exception as e:
         clear_bottom()
@@ -898,12 +883,12 @@ def line_tracker_calibrate_handler(line_tracker, option):
             if key.name == 'KEY_ENTER':
                 break
     
-    # makesure the calibration data is valid
+    clear_bottom()
+
     return slopes, offsets, calibration_data
 
 def grayscale_module_calibration():
-    global grayscale_date, grayscale_running_flag
-    global line_tracker
+    global line_tracker,grayscale_date, grayscale_running_flag
 
     # Initialize LineTracker with ADC channels
     line_tracker = LineTracker(ADC(0), ADC(1), ADC(2))
@@ -933,16 +918,16 @@ def grayscale_module_calibration():
         # Apply loaded calibration data to LineTracker
         set_line_tracker_calibration_data(line_tracker, slopes, offsets)
         
+        # read from config file and show
         config_values = [
             f"Slopes: {slopes}",
             f"Offsets: {offsets}"
         ]
         
         draw_bottom('Config loaded successfully.')
-        time.sleep(.5)  # Persistence of vision
+        time.sleep(.5)  
         clear_bottom()
         
-        # print config
         draw_bottom(config_values)
         time.sleep(1)
         clear_bottom(line=len(config_values))
@@ -978,6 +963,7 @@ def grayscale_module_calibration():
             status_lines.append(f"Black surface data: {calibration_data['black_data']}")
         
         if status_lines:
+            clear_bottom(line=2)
             status_obj = {
                 'location': (2, 12),
                 'color': THEME_COLOR,
@@ -1000,19 +986,11 @@ def grayscale_module_calibration():
         if key.name == 'KEY_UP':
             _mode = 0  # White thread
             refresh_screen()
-            continue
         elif key.name == 'KEY_DOWN':
             _mode = 1  # Black thread
             refresh_screen()
-            continue
-        elif key.name == 'KEY_ENTER':
-            refresh_screen()
-            draw_bottom(f'Starting Line Tracker calibration for option {_mode + 1}...')
-            time.sleep(1)
-            clear_bottom()
-            
-            # Perform calibration with selected option
-            new_slopes, new_offsets, new_cal_data = line_tracker_calibrate_handler(line_tracker, _mode)
+        elif key.name == 'KEY_ENTER':        
+            new_slopes, new_offsets, new_cal_data = line_tracker_calibrate_handler(line_tracker, _mode+1)
             
             # Update calibration data if returned
             if new_cal_data:
