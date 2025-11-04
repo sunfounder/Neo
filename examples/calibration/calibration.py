@@ -130,12 +130,17 @@ TITLE_GRAYSCALE = "GRAYSCALE MODULE CALIBRATION "
 GRAYSCALE_OPTIONS = {
     "location": (2, 2),
     "content": [
-        "[1] Line Tracker calibration (white and black surfaces)",
+        "[1] Get White Line Threshold - Place on WHITE surface",
+        "[2] Get Black Line Threshold - Place on BLACK surface",
     ]
 }
 GRAYSCALE_OPTIONS_TIPS = {
-    "location": (1, 2),
-    "content": ["Press ESC to quit, SPACE to save"]
+    "location": (CONTENT_WIDTH-18, 2),
+    "content": [
+        "[SPACE]   save",
+        "[Esc]     Back",
+        "[Ctrl+C]  Exit",
+    ]
 }
 
 ASK_SAVE = {
@@ -642,7 +647,6 @@ def compass_calibration():
                     draw_bottom('Cancel.')
                     continue
             else:
-                # 清理资源
                 grayscale_running_flag = False
                 if 'grayscale_data_thread' in locals() and grayscale_data_thread.is_alive():
                     grayscale_data_thread.join(timeout=0.5)
@@ -691,7 +695,6 @@ def compass_calibration():
 grayscale_date = [0, 0, 0]
 grayscale_running_flag = False
 
-# UI objects for grayscale module
 grayscale_date_obj = {
     'location': (2, 7),
     'color': THEME_COLOR,
@@ -712,116 +715,156 @@ grayscale_reference_obj = {
 }
 
 # Grayscale sensor data reading loop
-
 def read_grayscale_data_loop():
     global grayscale_date, grayscale_running_flag
 
+    temp_line_tracker = LineTracker(ADC(0), ADC(1), ADC(2))
+        
     while grayscale_running_flag:
         try:
-            grayscale_reading, _ = my_car.read_grayscale()
-            grayscale_date = grayscale_reading
+            grayscale_date = temp_line_tracker.read_raw()
             time.sleep(0.05)
         except Exception as e:
             time.sleep(0.05)
         time.sleep(0.05)
 
-""""-------------------line_reference_calibrate_handler-------------------"""
-# Line and cliff reference calibration handlers are no longer needed
-# They are replaced by LineTracker's calibration method
-
 '''---------Grayscale Module Calibration---------'''
-# Add support method for LineTracker to set calibration data if not already present
 class LineTrackerCalibrationSupport:
     @staticmethod
     def set_calibration_data(line_tracker, slopes, offsets):
-        """Set calibration data for LineTracker instance
-        This method directly updates the slopes and offsets attributes if they exist
-        """
         if hasattr(line_tracker, '_slopes'):
             line_tracker._slopes = slopes
         if hasattr(line_tracker, '_offsets'):
             line_tracker._offsets = offsets
-        # Handle case where LineTracker might use different attribute names
         if hasattr(line_tracker, 'slopes'):
             line_tracker.slopes = slopes
         if hasattr(line_tracker, 'offsets'):
             line_tracker.offsets = offsets
         return True
 
-def line_tracker_calibrate_handler(line_tracker):
-    """Line Tracker calibration handler using LineTracker.calibrate method"""
-    global grayscale_date
+def line_tracker_calibrate_handler(line_tracker, option):
+    
+    slopes = None
+    offsets = None
+    calibration_data = {}
+    
+    if not hasattr(line_tracker_calibrate_handler, '_calibration_data'):
+        line_tracker_calibrate_handler._calibration_data = {
+            'white_data': None,
+            'black_data': None
+        }
+    
+    
+    existing_data = line_tracker_calibrate_handler._calibration_data
     
     try:
-        # Step 1: Get white surface data
-        clear_bottom()
-        draw_bottom(['Please place the car on a WHITE surface.', 'Press Enter to continue...'], align='center')
+        if option == '1':  # white surface
+            clear_bottom()
+            draw_bottom(['Please place the car on a WHITE surface.', 'Press Enter to continue...'], align='center')
+            
+            while True:
+                key = term.inkey(timeout=0.1)
+                if key.name == 'KEY_ENTER':
+                    break
+            
+            # white surface
+            white_data = [0, 0, 0]
+            clear_bottom()
+            draw_bottom(['Collecting white surface data...'], align='center')
+            
+            for _ in range(10):
+                try:
+                    raw_data = line_tracker.read_raw()
+                    if raw_data and len(raw_data) >= 3:
+                        for j in range(3):
+                            white_data[j] += raw_data[j]
+                except Exception:
+                    pass
+                time.sleep(0.1)
+            
+            white_data = [int(val / 10) for val in white_data]
+            calibration_data['white_data'] = white_data
+            existing_data['white_data'] = white_data  # 更新静态存储
+            
+            clear_bottom()
+            draw_bottom([f'White surface data: {white_data}', 'Press Enter to continue...'], align='center')
+
+            while True:
+                key = term.inkey(timeout=0.1)
+                if key.name == 'KEY_ENTER':
+                    break
+            
+            # check
+            if existing_data['black_data'] is not None:
+                clear_bottom()
+                draw_bottom(['Both surfaces collected!', 'Performing calibration...'], align='center')
+                
+                slopes, offsets = line_tracker.calibrate(existing_data['white_data'], existing_data['black_data'])
+                
+                clear_bottom()
+                draw_bottom(['Calibration completed!', f'Slopes: {slopes}', f'Offsets: {offsets}'], align='center')
+                time.sleep(2)
         
-        # Wait for user input
-        while True:
-            key = term.inkey(timeout=0.1)
-            if key.name == 'KEY_ENTER':
-                break
-        
-        # Collect 10 samples for white surface
-        white_data = [0, 0, 0]
-        for i in range(10):
-            grayscale_reading, _ = my_car.read_grayscale()
-            for j in range(3):
-                white_data[j] += grayscale_reading[j]
-            time.sleep(0.1)
-        # Calculate average
-        white_data = [int(val / 10) for val in white_data]
-        
-        clear_bottom()
-        draw_bottom([f'White surface data collected: {white_data}', 'Press Enter to continue...'], align='center')
-        
-        # Wait for user input
-        while True:
-            key = term.inkey(timeout=0.1)
-            if key.name == 'KEY_ENTER':
-                break
-        
-        # Step 2: Get black surface data
-        clear_bottom()
-        draw_bottom(['Please place the car on a BLACK surface.', 'Press Enter to continue...'], align='center')
-        
-        # Wait for user input
-        while True:
-            key = term.inkey(timeout=0.1)
-            if key.name == 'KEY_ENTER':
-                break
-        
-        # Collect 10 samples for black surface
-        black_data = [0, 0, 0]
-        for i in range(10):
-            grayscale_reading, _ = my_car.read_grayscale()
-            for j in range(3):
-                black_data[j] += grayscale_reading[j]
-            time.sleep(0.1)
-        # Calculate average
-        black_data = [int(val / 10) for val in black_data]
-        
-        clear_bottom()
-        draw_bottom([f'Black surface data collected: {black_data}', 'Performing calibration...'], align='center')
-        
-        # Step 3: Perform calibration using LineTracker.calibrate
-        slopes, offsets = line_tracker.calibrate(white_data, black_data)
-        
-        clear_bottom()
-        draw_bottom(['Calibration completed!', f'Slopes: {slopes}', f'Offsets: {offsets}'], align='center')
-        time.sleep(2)
-        
-        return slopes, offsets
+        elif option == '2':  # black surface
+            clear_bottom()
+            draw_bottom(['Please place the car on a BLACK surface.', 'Press Enter to continue...'], align='center')
+            
+            while True:
+                key = term.inkey(timeout=0.1)
+                if key.name == 'KEY_ENTER':
+                    break
+            
+            # read black surface data
+            black_data = [0, 0, 0]
+            clear_bottom()
+            draw_bottom(['Collecting black surface data...'], align='center')
+            
+            for _ in range(10):
+                try:
+                    raw_data = line_tracker.read_raw()
+                    if raw_data and len(raw_data) >= 3:
+                        for j in range(3):
+                            black_data[j] += raw_data[j]
+                except Exception:
+                    pass
+                time.sleep(0.1)
+            
+            # average the data
+            black_data = [int(val / 10) for val in black_data]
+            calibration_data['black_data'] = black_data
+            existing_data['black_data'] = black_data  # update
+            
+            clear_bottom()
+            draw_bottom([f'Black surface data: {black_data}', 'Press Enter to continue...'], align='center')
+            
+            # wait 
+            while True:
+                key = term.inkey(timeout=0.1)
+                if key.name == 'KEY_ENTER':
+                    break
+            
+            # check if white surface data is available
+            if existing_data['white_data'] is not None:
+                clear_bottom()
+                draw_bottom(['Both surfaces collected!', 'Performing calibration...'], align='center')
+                
+                # calibrate
+                slopes, offsets = line_tracker.calibrate(existing_data['white_data'], existing_data['black_data'])
+                
+                clear_bottom()
+                draw_bottom(['Calibration completed!', f'Slopes: {slopes}', f'Offsets: {offsets}'], align='center')
+                time.sleep(2)
         
     except Exception as e:
         clear_bottom()
-        draw_bottom([f'Calibration error: {str(e)}', 'Press Enter to continue...'], align='center')
+        draw_bottom([f'Error during calibration: {str(e)}', 'Press Enter to continue...'], align='center')
         while True:
             key = term.inkey(timeout=0.1)
             if key.name == 'KEY_ENTER':
                 break
-        return None, None
+    
+    # makesure the calibration data is valid
+    return slopes, offsets, calibration_data
 
 def grayscale_module_calibration():
     global grayscale_date, grayscale_running_flag
@@ -832,6 +875,12 @@ def grayscale_module_calibration():
     # Calibration data
     slopes = [1, 1, 1]  # Default values
     offsets = [0, 0, 0]  # Default values
+    
+    # Two-step calibration support
+    calibration_data = {
+        'white_data': None,
+        'black_data': None
+    }
     
     _has_saved = False
     _mode = 0
@@ -883,6 +932,22 @@ def grayscale_module_calibration():
                     )
         _draw_offset(grayscale_date_obj)
         _draw_offset(grayscale_reference_obj)
+        
+        # Display collected data status
+        status_lines = []
+        if calibration_data['white_data'] is not None:
+            status_lines.append("White surface data: COLLECTED")
+        if calibration_data['black_data'] is not None:
+            status_lines.append("Black surface data: COLLECTED")
+        
+        if status_lines:
+            status_obj = {
+                'location': (2, 12),
+                'color': THEME_COLOR,
+                'content': status_lines,
+                'box_width': 35
+            }
+            _draw_offset(status_obj)
 
     # read grayscale data loop action
     grayscale_running_flag = True
@@ -894,13 +959,23 @@ def grayscale_module_calibration():
     while True:
         key = term.inkey(timeout=0.1)
         
-        if key.name == 'KEY_ENTER':
-            # Perform Line Tracker calibration
-            refresh_screen()
-            draw_bottom('Starting Line Tracker calibration...')
+        if key.name == 'KEY_ENTER' or key in ['1', '2']:
+            # Use the selected option (1 or 2) or current mode if Enter is pressed
+            option = key if key in ['1', '2'] else str(_mode + 1)
             
-            # Perform calibration
-            new_slopes, new_offsets = line_tracker_calibrate_handler(line_tracker)
+            # Perform Line Tracker calibration with selected option
+            refresh_screen()
+            draw_bottom(f'Starting Line Tracker calibration for option {option}...')
+            
+            # Perform calibration with selected option
+            new_slopes, new_offsets, new_cal_data = line_tracker_calibrate_handler(line_tracker, option)
+            
+            # Update calibration data if returned
+            if new_cal_data:
+                if 'white_data' in new_cal_data:
+                    calibration_data['white_data'] = new_cal_data['white_data']
+                if 'black_data' in new_cal_data:
+                    calibration_data['black_data'] = new_cal_data['black_data']
             
             if new_slopes is not None and new_offsets is not None:
                 slopes, offsets = new_slopes, new_offsets
@@ -908,6 +983,15 @@ def grayscale_module_calibration():
                 refresh_screen()
                 draw_bottom('Calibration successful! Press SPACE to save.')
                 time.sleep(2)
+                clear_bottom()
+            else:
+                # Update screen to show new data collection status even if calibration not complete
+                refresh_screen()
+                if calibration_data['white_data'] is not None and calibration_data['black_data'] is not None:
+                    draw_bottom('Both surfaces collected! Ready for final calibration.')
+                else:
+                    draw_bottom('Data collection in progress. Collect both surfaces.')
+                time.sleep(1)
                 clear_bottom()
         
         elif key.name == 'KEY_ESCAPE':
@@ -960,19 +1044,30 @@ def grayscale_module_calibration():
         
         # Update display with current grayscale data and calibration values
         try:
-            # Read raw grayscale data
-            grayscale_reading, _ = my_car.read_grayscale()
-            grayscale_date = grayscale_reading
+            # 优先使用LineTracker的read_raw方法读取灰度数据
+            try:
+                raw_data = line_tracker.read_raw()
+                if raw_data and len(raw_data) >= 3:
+                    grayscale_date = raw_data
+                else:
+                    # 回退方案：使用my_car读取灰度数据
+                    grayscale_reading, _ = my_car.read_grayscale()
+                    grayscale_date = grayscale_reading
+            except Exception:
+                # 出错时使用回退方案
+                grayscale_reading, _ = my_car.read_grayscale()
+                grayscale_date = grayscale_reading
             
-            # Show raw data
+            # 显示原始数据
             grayscale_date_obj['content'] = [f"Raw grayscale data: {grayscale_date}"]
             
-            # Show calibration values
+            # 显示校准值
             grayscale_reference_obj['content'] = [
                 f"Calibration slopes: {slopes}",
                 f"Calibration offsets: {offsets}",
             ]
         except Exception as e:
+            # 出错时保持上次数据不变
             pass
   
         _draw_offset(grayscale_date_obj)
@@ -991,7 +1086,6 @@ def loop():
         compass_calibration()
     elif mode == 2:
         grayscale_module_calibration()
-        # grayscale_module_calibration_under_construction()
     else:
         pass
 
