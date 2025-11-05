@@ -1,74 +1,112 @@
 from neo import Neo
-from time import sleep
+from fusion_hat.modules import Grayscale_Module,LineTracker
+from fusion_hat.adc import ADC
+import time
+import threading
 
 my_car = Neo()
 
-FORWARD_POWER = 30
-TURNING_POWER = 15
+line_tracker_slopes = my_car.config.get('line_tracker_slopes', [1, 1, 1])
+line_tracker_offsets = my_car.config.get('line_tracker_offsets', [0, 0, 0])
 
-# please run examples/calibration.py to set line_reference and cliff_reference
-# my_car.set_line_reference([1000, 1000, 1000])
-# my_car.set_cliff_reference([200, 200, 200])
+gs = Grayscale_Module(ADC(0), ADC(1), ADC(2), reference=2000)
+line_tracker = LineTracker(ADC(0), ADC(1), ADC(2),offsets=line_tracker_offsets,slopes=line_tracker_slopes)
 
-my_car.set_line_reference([657, 765, 658])
-my_car.set_cliff_reference([200, 200, 200])
+line_position = 0.0  # mid
+display_run = True  
 
-last_status = 'stop'
+FORWARD_POWER = 50
+TURNING_POWER = 45
 
-def line_track():
-    global  last_status
- 
-    # read data
-    value, _status = my_car.read_grayscale()
+# DISPLAY_MODE: 'animation' - animation mode, 'simple' - simple print
+DISPLAY_MODE = 'simple'
 
-    # ananalyze status
-    for i in range(3):
-        if _status[i] == 'cliff':
-            _status[i] = '!'
-        elif _status[i] == 'inside':
-            _status[i] = 'x'
-        elif _status[i] == 'outside':
-            _status[i] = '_'
+def read_reference():
+    '''read line tracker reference from config file'''
+    try:
+        print("--------------------")
+        print(f"line_tracker_slopes: {line_tracker_slopes}")
+        print(f"line_tracker_offsets: {line_tracker_offsets}")
+        print("--------------------")
+    except Exception as e:
+        raise e
+
+def display_position_bar(position):
+    position = max(-1.0, min(1.0, position))
     
-    status = None
-    if '!' in _status:
-        status = 'cliff'
-        last_status = 'cliff'
-    elif _status == ['_', '_', '_'] :
-        if last_status == 'stop' or last_status == 'cliff':
-            status = 'stop'
-            last_status = 'stop'
-        else:
-            status = 'outside'
-            last_status = 'outside'
-    elif _status[1] == 'x':
-        status = 'forward'
-        last_status = 'forward'
-    elif _status[0] == 'x':
-        status = 'left'
-        last_status = 'left'
-    elif _status[2] == 'x':
-        status = 'right'
-        last_status = 'right'
+    total_separators = 10
+    
+    left_count = int((position + 1.0) / 2.0 * total_separators)
+    right_count = total_separators - left_count
+    
+    # creat position bar
+    bar = f"|{'-' * left_count}□{'-' * right_count}|"
+    
+    return bar
 
-    print(f'value: {value},  status: {_status[0]} {_status[1]} {_status[2]}, {status}')
 
-    # move
-    if status == 'cliff':
-        my_car.stop()
-    elif status == 'forward':
-        my_car.forward(FORWARD_POWER)
-    elif status == 'left':
-        my_car.turn_left(TURNING_POWER)
-    elif status == 'right':
-        my_car.turn_right(TURNING_POWER)
-    elif status == 'outside':
-        #TODO: outside handler
-        my_car.stop()
+def car_action():
+    global line_position, display_run
+    while  display_run:
+        if DISPLAY_MODE == 'animation':
+            print('\r\033[K', end='')  # clear current line
+            bar = display_position_bar(line_position)
+            print(f"位置: {line_position:.2f} | {bar}")
+        elif DISPLAY_MODE == 'simple':
+            print(f"位置: {line_position:.2f}")
+        
+        time.sleep(0.1)  
 
-try:
-    while True:
-        line_track()
-        sleep(0.05)
-finally:
-    my_car.stop()
+
+def main():
+    # read from config file
+    read_reference()
+    global display_run
+
+    display_thread = threading.Thread(target=car_action)
+    display_thread.daemon = True  
+    display_thread.start()
+
+    try:
+        while True:
+            # read
+            gray_value_raw = line_tracker.read(raw=True)
+            line_position = line_tracker.get_line_position(gray_value_raw)
+            is_on_cliff = line_tracker.is_on_cliff()
+            is_on_line = line_tracker.is_on_line()
+
+            display_run = True
+
+            if is_on_line and not is_on_cliff:
+                if line_position < -0.5 and line_position != 0.0:
+                    my_car.turn_left(TURNING_POWER)
+                    print("turn left")
+                elif line_position > 0.5 and line_position != 0.0:
+                    my_car.turn_right(TURNING_POWER)
+                    print("turn right")
+                elif line_position == 0.0:
+                    my_car.forward(FORWARD_POWER)
+                    print("forward")
+                time.sleep(0.05)
+            elif not is_on_line:
+                print("is not on line")
+                my_car.stop()
+                display_run = False
+                # my_car.turn_left(TURNING_POWER)
+                # if line_position:
+                #     break
+            elif is_on_cliff:
+                print("is on cliff")
+                my_car.stop()
+                display_run = False
+                break
+          
+    except KeyboardInterrupt:
+        print("\nstop\n")
+    finally:
+        my_car.stop()  
+        display_run = False
+        display_thread.join()
+
+if __name__ == '__main__':
+    main()
