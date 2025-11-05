@@ -895,8 +895,8 @@ def grayscale_module_calibration():
     line_tracker = LineTracker(ADC(0), ADC(1), ADC(2))
     
     # Calibration data
-    slopes = [1, 1, 1]  # Default values
-    offsets = [0, 0, 0]  # Default values
+    slopes = [1, 1, 1]
+    offsets = [0, 0, 0]
     
     # Two-step calibration support
     calibration_data = {
@@ -916,7 +916,6 @@ def grayscale_module_calibration():
         slopes = my_car.config.get('line_tracker_slopes', [1, 1, 1])
         offsets = my_car.config.get('line_tracker_offsets', [0, 0, 0])
         
-        # Apply loaded calibration data to LineTracker
         set_line_tracker_calibration_data(line_tracker, slopes, offsets)
         
         # read from config file and show
@@ -983,7 +982,6 @@ def grayscale_module_calibration():
     while True:
         key = term.inkey(timeout=0.1)
         
-        # mode selection
         if key.name == 'KEY_UP':
             _mode = 0  # White thread
             refresh_screen()
@@ -1008,9 +1006,8 @@ def grayscale_module_calibration():
                 time.sleep(2)
                 clear_bottom()
             else:
-                # Update screen to show new data collection status even if calibration not complete
                 refresh_screen()
-                # Update grayscale_reference_obj with new calibration data if available
+                # Update grayscale_reference_obj with new calibration data
                 if new_slopes is not None and new_offsets is not None:
                     grayscale_reference_obj['content'] = [
                         f"Calibration slopes: {new_slopes}",
