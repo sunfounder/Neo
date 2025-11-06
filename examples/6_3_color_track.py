@@ -37,12 +37,15 @@ def main():
             h = Vilib.color_obj_parameter['h']
 
             if w > 150 and h > 150:
+                x_center = x + w/2
+                y_center = y + h/2
+                
                 # change the pan-tilt angle for track the object
-                x_angle +=(x*10/camera_width)-5
+                x_angle +=(x_center*10/camera_width)-5
                 x_angle = clamp_number(x_angle, -35, 35)
                 my_car.set_cam_pan(x_angle)
 
-                y_angle -=(y*10/camera_height)-5
+                y_angle -=(y_center*10/camera_height)-5
                 y_angle = clamp_number(y_angle,-35,35)
                 my_car.set_cam_tilt(y_angle)
 
@@ -60,5 +63,7 @@ if __name__ == "__main__":
     finally:
         print("Stop")
         my_car.stop()
+        my_car.set_cam_pan(0)
+        my_car.set_cam_tilt(0)
         Vilib.camera_close()
         sleep(0.1)
