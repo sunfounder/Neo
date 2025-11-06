@@ -54,5 +54,7 @@ if __name__ == "__main__":
     finally:
         print("Stop")
         my_car.stop()
+        my_car.set_cam_pan(0)
+        my_car.set_cam_tilt(0)
         Vilib.camera_close()
         sleep(0.1)
