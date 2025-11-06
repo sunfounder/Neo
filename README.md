@@ -64,8 +64,8 @@ sudo python3 setup.py install
 
 ### 快速更新
 ```bash
-cd ~/Neo && sudo pip3 install . --break --no-deps --no-build-isolation
-cd ~/fusion-hat && sudo pip3 install . --break --no-deps --no-build-isolation
+sudo pip3 install ~/Neo --break --no-deps --no-build-isolation
+sudo pip3 install ~/fusion-hat/ --break --no-deps --no-build-isolation
 ```
 ### Pin map
   The pin map of the Neo robot.
