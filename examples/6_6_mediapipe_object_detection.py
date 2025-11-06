@@ -9,6 +9,7 @@ import time
 
 from picamera2 import Picamera2
 import libcamera
+import os
 
 import mediapipe as mp
 from mediapipe.tasks import python
@@ -107,8 +108,10 @@ def save_result(result: vision.ObjectDetectorResult, output_image: mp.Image=None
     frame_count += 1
 
 # ---------------------------------------------------------------------------
-model = "../vision_models/efficientdet_lite0.tflite"
-labels = "../vision_models/object_detection_labelmap.txt"
+# absolute path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+model = os.path.join(script_dir, "../vision_models/efficientdet_lite0.tflite")
+labels = os.path.join(script_dir, "../vision_models/object_detection_labelmap.txt")
 
 CAMERA_WIDTH = 800
 CAMERA_HEIGHT = 600
