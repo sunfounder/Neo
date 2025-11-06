@@ -34,8 +34,11 @@ my_car.set_cam_tilt(tilt_angle)
 # https://github.com/ndrplz/self-driving-car
 # https://markhedleyjones.com/projects/calibration-checkerboard-collection
 
-model = "../vision_models/efficientdet_lite0.tflite"
-labels = "../vision_models/object_detection_labelmap.txt"
+import os
+# 使用绝对路径确保模型能被正确找到
+script_dir = os.path.dirname(os.path.abspath(__file__))
+model = os.path.join(script_dir, "../vision_models/efficientdet_lite0.tflite")
+labels = os.path.join(script_dir, "../vision_models/object_detection_labelmap.txt")
 SCORE_THRESHOLD = 0.5
 MAX_RESULTS = 15
 
@@ -499,18 +502,22 @@ def main():
     else:
         mode = 'live'
 
-        obj_detector = mediapipe_objiect_detector_init()
+        try:
+            obj_detector = mediapipe_objiect_detector_init()
 
-        picam2 = camera_init(
-                        main_size=(camera_w, camera_h),
-                        lores_size=None,
-                        hflip=True,
-                        vflip=True
-                        )
-        
-        move_thread = threading.Thread(target=move_hander, daemon=True)
-        move_running = True
-        move_thread.start()
+            picam2 = camera_init(
+                            main_size=(camera_w, camera_h),
+                            lores_size=None,
+                            hflip=True,
+                            vflip=True
+                            )
+            
+            move_thread = threading.Thread(target=move_hander, daemon=True)
+            move_running = True
+            move_thread.start()
+        except Exception as e:
+            print(f"初始化失败: {str(e)}")
+            raise
 
     line_lt, line_rt = Line(buffer_len=8), Line(buffer_len=8)
 
@@ -625,6 +632,8 @@ def main():
 
 
 if __name__ == '__main__':
+    move_thread = None
+    picam2 = None
     try:
         main()
     except KeyboardInterrupt:
@@ -632,11 +641,20 @@ if __name__ == '__main__':
     except Exception as e:
         print(traceback.format_exc())
     finally:
-        if mode == 'live':
+        if 'mode' in locals() and mode == 'live':
             print('stop')
-            move_running = False
-            move_thread.join()
-            picam2.close()
+            if 'move_running' in locals():
+                move_running = False
+            if move_thread is not None:
+                try:
+                    move_thread.join()
+                except:
+                    pass
+            if picam2 is not None:
+                try:
+                    picam2.close()
+                except:
+                    pass
 
 
             
