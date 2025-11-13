@@ -7,10 +7,10 @@ from fusion_hat._utils import run_command
 from fusion_hat._config import Config         
 from fusion_hat.modules import Grayscale_Module, Ultrasonic
 from fusion_hat.device import enable_speaker, disable_speaker
+from fusion_hat.modules import Compass
 
 from .rgb_strip import NeoRGBStrip
 from .sh3001 import SH3001
-from .compass import Compass
 from .pid import PID
 from .utils import *
 
